@@ -1,0 +1,33 @@
+# Arquivos de Segredos e Variáveis de Ambiente
+# Nunca comite chaves de API ou senhas!
+.env
+
+# Diretório do Ambiente Virtual Python
+# Ele é recriado a partir do requirements.txt, então não precisa ser versionado.
+.venv/
+venv/
+*.venv
+
+# Arquivos compilados e cache do Python
+# São gerados automaticamente e não são parte do código-fonte.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Diretórios de Logs
+# Arquivos de log são específicos do ambiente e não devem ser versionados.
+logs/
+*.log
+
+# Arquivos de configuração de IDEs e Editores
+# Mantém as configurações do repositório limpas de preferências pessoais.
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de Build e Distribuição
+dist/
+build/
+*.egg-info/

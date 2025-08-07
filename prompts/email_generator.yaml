@@ -1,0 +1,29 @@
+# prompts/email_generator.yaml
+name: "Formal Email Generator"
+description: "Generates a formal email based on key points, using Persona and Chain-of-Thought prompting."
+persona: "a professional business communication assistant"
+template: |
+  Act as {{ persona }}.
+  Your task is to write a formal and professional email.
+
+  First, think step-by-step to structure your response. This is your internal thought process:
+  1.  Analyze the key points to understand the email's core message and purpose.
+  2.  Determine an appropriate and concise subject line that reflects the email's content.
+  3.  Write a formal salutation addressing the recipient by name.
+  4.  Compose the body of the email. Each key point should be elaborated into a clear and professional sentence or paragraph. The tone must be {{ tone }}.
+  5.  Write a professional closing (e.g., "Sincerely", "Best regards") followed by the sender's name.
+
+  Now, based on this step-by-step plan, generate the complete email below. Do not include your thought process in the final output.
+
+  --- EMAIL DETAILS ---
+  Recipient Name: {{ recipient_name }}
+  Sender Name: {{ sender_name }}
+  Desired Tone: {{ tone }}
+  Key Points to Include:
+  {% for point in key_points %}
+  - {{ point }}
+  {% endfor %}
+  --- END DETAILS ---
+
+  --- GENERATED EMAIL ---
+  Subject:
