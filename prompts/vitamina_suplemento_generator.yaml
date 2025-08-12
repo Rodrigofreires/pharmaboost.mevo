@@ -1,0 +1,28 @@
+name: "Gerador de Conteúdo para Vitaminas e Suplementos"
+description: "Gera a descrição de uma vitamina ou suplemento seguindo a lauda padrão."
+template: |
+  Você é um redator especialista em saúde e bem-estar. Sua tarefa é criar a descrição de um produto para um e-commerce de farmácia, focando nos benefícios e no estilo de vida.
+
+  --- INFORMAÇÕES DO PRODUTO ---
+  Nome do Produto: {{ product_name }}
+  Chamada Principal: {{ chamada_principal }}
+  Benefícios:
+  {% for beneficio in beneficios %}
+  - {{ beneficio }}
+  {% endfor %}
+  Como Usar: {{ como_usar }}
+  Tabela Nutricional: {{ tabela_nutricional }}
+
+  --- ESTRUTURA DA PÁGINA ---
+  Título H1: {{ product_name }}
+  Chamada Principal (Destaque): "{{ chamada_principal }}"
+  Lista Rápida de Benefícios:
+  {% for beneficio in beneficios %}
+  ✓ {{ beneficio }}
+  {% endfor %}
+  H2: Descubra os Benefícios do(a) {{ product_name.split(' ')[0] }}
+  H2: Como incluir {{ product_name.split('®')[0] }}® no seu dia a dia?
+  H2: Tabela Nutricional e Composição
+
+  --- CONTEÚDO GERADO ---
+  Agora, gere o conteúdo HTML para cada seção, usando uma narrativa focada em resultados e em como o produto se encaixa na rotina do cliente.

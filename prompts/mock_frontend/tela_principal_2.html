@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Conteúdo para E-commerce Farma</title>
+    <!-- Tailwind CSS com Plugin de Tipografia -->
+    <script src="https://cdn.tailwindcss.com/3.4.1?plugins=typography"></script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose strong {
+             color: #1f2937;
+        }
+        .loader {
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1.2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- SVG Icons Components ---
+        const SparklesIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.293 2.293a1 1 0 010 1.414L10 12l-2 2 2.293 2.293a1 1 0 010 1.414L5 21m14-14l-2.293 2.293a1 1 0 01-1.414 0L10 12l2-2 2.293-2.293a1 1 0 011.414 0z" />
+            </svg>
+        );
+
+        const DocumentIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        );
+
+        // --- Templates para os Formulários ---
+        const productTemplates = {
+            medicine: {
+                endpoint: 'http://localhost:8000/generate-medicine-content',
+                payload: {
+                    "product_name": "Amoxicilina + Clavulanato de Potássio 875mg + 125mg",
+                    "product_info": {
+                        "indicacoes": "Tratamento de infecções bacterianas comuns.",
+                        "mecanismo_acao": "A amoxicilina elimina a bactéria e o clavulanato protege a amoxicilina.",
+                        "posologia": "1 comprimido de 12 em 12 horas.",
+                        "contraindicacoes": "Alergia a penicilinas."
+                    }
+                }
+            },
+            vitamin: {
+                endpoint: 'http://localhost:8000/generate-vitamin-content',
+                payload: {
+                    "product_name": "Vitamina C Tripla Ação - Redoxon®",
+                    "product_info": {
+                        "chamada_principal": "Turbine sua imunidade com a força da Vitamina C, D e Zinco!",
+                        "beneficios": "Fortalece a Imunidade; Ação Antioxidante; Mais Energia.",
+                        "como_usar": "Dissolver 1 comprimido em um copo com água.",
+                        "tabela_nutricional": "Vitamina C: 1000mg, Vitamina D: 10mcg, Zinco: 10mg."
+                    }
+                }
+            },
+            dermocosmetic: {
+                endpoint: 'http://localhost:8000/generate-dermocosmetic-content',
+                payload: {
+                    "product_name": "Protetor Solar Isdin Fusion Water FPS 50",
+                    "product_info": {
+                        "chamada_principal": "Fotoproteção diária para pele oleosa. Textura ultraleve.",
+                        "fatos_rapidos": "Toque Seco; Base Aquosa; Não Arde os Olhos.",
+                        "diferenciais_tecnologicos": "Tecnologia Fusion Water, Safe-Eye Tech™, Wet Skin.",
+                        "passo_a_passo": "Aplicar generosamente sobre a pele seca, meia hora antes da exposição solar.",
+                        "descricao_sensorial": "Textura em gel aquoso, leve, absorção instantânea."
+                    }
+                }
+            }
+        };
+        
+        // --- Componente de Formulário Dinâmico ---
+        function DynamicForm({ formData, setFormData }) {
+            const handleProductNameChange = (e) => {
+                setFormData(prev => ({ ...prev, product_name: e.target.value }));
+            };
+
+            const handleInfoChange = (key, value) => {
+                setFormData(prev => ({
+                    ...prev,
+                    product_info: {
+                        ...prev.product_info,
+                        [key]: value
+                    }
+                }));
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Nome do Produto</label>
+                        <input
+                            type="text"
+                            value={formData.product_name}
+                            onChange={handleProductNameChange}
+                            className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                    {Object.entries(formData.product_info).map(([key, value]) => (
+                        <div key={key}>
+                            <label className="block text-sm font-bold text-slate-700 mb-1 capitalize">
+                                {key.replace(/_/g, ' ')}
+                            </label>
+                            <textarea
+                                value={value}
+                                onChange={(e) => handleInfoChange(key, e.target.value)}
+                                className="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                rows={2}
+                            />
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // --- Componente para Visualizar o Conteúdo Gerado ---
+        function ContentView({ content, isLoading, error }) {
+            if (isLoading) return <div className="flex justify-center items-center h-full min-h-[300px]"><div className="loader"></div></div>;
+            if (error) return <div className="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg" role="alert"><p className="font-bold text-lg">Ocorreu um Erro</p><p className="mt-1 text-sm">{error}</p><p className="mt-3 text-xs text-red-700">Verifique se sua API está rodando e se os nomes dos prompts estão corretos.</p></div>;
+            if (!content) return <div className="text-center text-slate-500 p-10 h-full flex flex-col justify-center items-center rounded-lg bg-slate-50/50"><DocumentIcon /><p className="mt-4 font-semibold">Aguardando Geração</p><p className="text-sm">O conteúdo gerado pela API aparecerá aqui.</p></div>;
+            return <div className="prose prose-sm sm:prose-base max-w-none" dangerouslySetInnerHTML={{ __html: content }} />;
+        }
+
+        // --- Componente Principal da Aplicação ---
+        function App() {
+            const [activeTab, setActiveTab] = useState('medicine');
+            const [formData, setFormData] = useState(productTemplates.medicine.payload);
+            const [generatedContent, setGeneratedContent] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                setFormData(productTemplates[activeTab].payload);
+                setGeneratedContent('');
+                setError(null);
+            }, [activeTab]);
+
+            const handleGenerateContent = async () => {
+                setIsLoading(true);
+                setError(null);
+                setGeneratedContent('');
+
+                try {
+                    const endpoint = productTemplates[activeTab].endpoint;
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'accept': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`HTTP error! status: ${response.status} - ${JSON.stringify(errorData.detail)}`);
+                    }
+
+                    const data = await response.json();
+                    const htmlContent = data.content.replace(/```html\n?|```/g, '');
+                    setGeneratedContent(htmlContent);
+
+                } catch (e) {
+                    console.error("Falha ao buscar conteúdo:", e);
+                    setError(e.message);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const TabButton = ({ id, label }) => (
+                <button
+                    onClick={() => setActiveTab(id)}
+                    className={`flex-1 px-3 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-200/60'}`}
+                >
+                    {label}
+                </button>
+            );
+
+            return (
+                <div className="min-h-screen w-full p-4 sm:p-8 bg-gradient-to-br from-slate-50 to-blue-100">
+                    <div className="w-full max-w-5xl mx-auto">
+                        <header className="text-center mb-10">
+                            <h1 className="text-5xl font-extrabold text-slate-800 tracking-tight">Plataforma de Geração de Conteúdo</h1>
+                            <p className="text-slate-600 mt-3 max-w-2xl mx-auto">Uma interface de demonstração para apresentar os insights e a capacidade de geração de conteúdo para e-commerce farmacêutico utilizando IA.</p>
+                        </header>
+
+                        <main className="flex flex-col gap-8">
+                            {/* Linha de Cima: Controles */}
+                            <div className="glass-card p-6 rounded-2xl shadow-lg flex flex-col">
+                                <h2 className="text-2xl font-bold mb-4 text-slate-700">1. Preencha os Dados do Produto</h2>
+                                <div className="flex space-x-2 bg-slate-100/80 p-1.5 rounded-xl mb-6">
+                                    <TabButton id="medicine" label="Medicamento" />
+                                    <TabButton id="vitamin" label="Vitamina" />
+                                    <TabButton id="dermocosmetic" label="Dermocosmético" />
+                                </div>
+                                <DynamicForm formData={formData} setFormData={setFormData} />
+                                <button
+                                    onClick={handleGenerateContent}
+                                    disabled={isLoading}
+                                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 px-6 rounded-xl hover:shadow-xl hover:-translate-y-1 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed flex items-center justify-center text-lg"
+                                >
+                                    <SparklesIcon />
+                                    {isLoading ? 'Gerando...' : 'Gerar Insight de Conteúdo'}
+                                </button>
+                            </div>
+
+                            {/* Linha de Baixo: Resultado */}
+                            <div className="glass-card p-6 rounded-2xl shadow-lg flex flex-col">
+                                <h2 className="text-2xl font-bold mb-4 text-slate-700">2. Conteúdo Gerado pela IA</h2>
+                                <div className="border-t border-slate-200/80 pt-4 flex-grow overflow-y-auto min-h-[400px]">
+                                    <ContentView content={generatedContent} isLoading={isLoading} error={error} />
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

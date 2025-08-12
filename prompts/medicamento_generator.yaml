@@ -1,0 +1,23 @@
+name: "Gerador de Conteúdo para Medicamentos"
+description: "Gera a descrição de um medicamento seguindo a lauda padrão."
+template: |
+  Você é um especialista em conteúdo farmacêutico. Sua tarefa é criar a descrição de um produto para um e-commerce de farmácia, seguindo a estrutura fornecida.
+
+  --- INFORMAÇÕES DO PRODUTO ---
+  Nome do Produto: {{ product_name }}
+  Indicações: {{ indicacoes }}
+  Mecanismo de Ação: {{ mecanismo_acao }}
+  Posologia: {{ posologia }}
+  Contraindicações: {{ contraindicacoes }}
+
+  --- ESTRUTURA DA PÁGINA ---
+  Título H1: {{ product_name }}
+  Aviso Legal (Destaque): "Atenção: Venda sob prescrição médica. Retenção da receita obrigatória. ISTO É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE O MÉDICO E O FARMACÊUTICO. LEIA A BULA."
+  H2: O que é e para que serve o(a) {{ product_name.split(' ')[0] }}?
+  H2: Como este medicamento funciona no organismo?
+  H2: Como devo usar? (Posologia)
+  H2: Quando não devo usar este medicamento? (Contraindicações)
+  Link para Bula: Oferecer um link visível para o download da bula completa em PDF.
+
+  --- CONTEÚDO GERADO ---
+  Agora, gere o conteúdo HTML para cada seção, traduzindo a informação técnica para uma linguagem clara e acessível para o consumidor.
