@@ -24,5 +24,9 @@ template: |
   H2: Como incluir {{ product_name.split('®')[0] }}® no seu dia a dia?
   H2: Tabela Nutricional e Composição
 
-  --- CONTEÚDO GERADO ---
-  Agora, gere o conteúdo HTML para cada seção, usando uma narrativa focada em resultados e em como o produto se encaixa na rotina do cliente.
+  --- INSTRUÇÃO DE MELHORIA CONTÍNUA ---
+  Com base na análise de SEO, aplique a seguinte melhoria estratégica ao gerar o conteúdo: "{{ melhoria_estrategica }}".
+  Isto é um refinamento sobre a estrutura original.
+
+  --- DIRETIVA DE SAÍDA FINAL ---
+  Sua resposta deve conter APENAS o código HTML. Não inclua introduções, comentários ou a marcação ```html. Sua resposta deve começar diretamente com a primeira tag HTML.

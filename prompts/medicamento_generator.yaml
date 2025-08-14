@@ -1,23 +1,43 @@
-name: "Gerador de Conteúdo para Medicamentos"
-description: "Gera a descrição de um medicamento seguindo a lauda padrão."
+name: "Gerador de Conteúdo para Medicamentos a Partir da Bula"
+description: "Gera a descrição completa, título SEO e meta descrição para um e-commerce, baseando-se estritamente na bula de um medicamento."
 template: |
-  Você é um especialista em conteúdo farmacêutico. Sua tarefa é criar a descrição de um produto para um e-commerce de farmácia, seguindo a estrutura fornecida.
+  **TAREFA:**
+  Você é um redator especialista em SEO para o setor farmacêutico. Sua missão é transformar o conteúdo técnico e denso de uma bula de medicamento em três peças de conteúdo claras, otimizadas e prontas para um e-commerce.
 
-  --- INFORMAÇÕES DO PRODUTO ---
-  Nome do Produto: {{ product_name }}
-  Indicações: {{ indicacoes }}
-  Mecanismo de Ação: {{ mecanismo_acao }}
-  Posologia: {{ posologia }}
-  Contraindicações: {{ contraindicacoes }}
+  **REGRA DE OURO INEGOCIÁVEL E IMUTÁVEL:**
+  Toda e qualquer informação textual deve ser obrigatoriamente extraída e baseada no texto da bula fornecido. É expressamente proibido redigir, inferir, inventar ou complementar qualquer informação que não possa ser diretamente comprovada pelo texto da bula. A segurança e a conformidade são as maiores prioridades.
 
-  --- ESTRUTURA DA PÁGINA ---
-  Título H1: {{ product_name }}
-  Aviso Legal (Destaque): "Atenção: Venda sob prescrição médica. Retenção da receita obrigatória. ISTO É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE O MÉDICO E O FARMACÊUTICO. LEIA A BULA."
-  H2: O que é e para que serve o(a) {{ product_name.split(' ')[0] }}?
-  H2: Como este medicamento funciona no organismo?
-  H2: Como devo usar? (Posologia)
-  H2: Quando não devo usar este medicamento? (Contraindicações)
-  Link para Bula: Oferecer um link visível para o download da bula completa em PDF.
+  **DADOS DE ENTRADA:**
+  - **Nome do Produto:** {{ product_name }}
+  - **Texto Completo da Bula:**
+  ---
+  {{ bula_text }}
+  ---
 
-  --- CONTEÚDO GERADO ---
-  Agora, gere o conteúdo HTML para cada seção, traduzindo a informação técnica para uma linguagem clara e acessível para o consumidor.
+  **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
+  Sua resposta deve ser **APENAS** um objeto JSON válido, sem nenhum texto ou comentário antes ou depois. O JSON deve conter três chaves:
+
+  1.  `html_content`:
+      - Crie um conteúdo HTML para a página do produto.
+      - O H1 deve ser o `{{ product_name }}`.
+      - Utilize uma estrutura hierárquica clara (H2, H3, H4) para organizar a informação em seções como "O que é e para que serve?", "Como funciona?", "Contraindicações", "Como usar?", "Composição", etc.
+      - A linguagem deve ser clara e educativa para o consumidor final, traduzindo o "tecniquês" da bula para um formato compreensível, mas sempre fiel à informação original.
+
+  2.  `seo_title`:
+      - Crie um título para o site (Meta Title) otimizado para SEO, com no máximo 60 caracteres. Deve ser chamativo e conter o nome do produto.
+
+  3.  `meta_description`:
+      - Crie uma meta descrição otimizada para SEO, com no máximo 155 caracteres. Deve ser um resumo atrativo, destacando os benefícios e incentivando o clique.
+
+  **Exemplo de estilo de conteúdo a ser seguido para o `html_content`:**
+  (Use o exemplo abaixo como inspiração para o TOM e a ESTRUTURA, mas baseie-se SEMPRE na bula fornecida)
+  "
+  H1: Paracetamol Teuto Genérico
+  H2: Qual a indicação do Paracetamol Teuto Genérico?
+  Paracetamol é um analgésico e antitérmico indicado para o alívio de dores de cabeça, dores associadas a gripes e resfriados, dor de dente, dor de garganta e para a redução da febre.
+  H2: Como este medicamento funciona?
+  Ele atua no sistema nervoso central para diminuir a sensibilidade à dor e regular a temperatura corporal.
+  ... (continue estruturando as demais seções da bula)
+  "
+
+  Agora, processe a bula do produto "{{ product_name }}" e gere o objeto JSON completo.

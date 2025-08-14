@@ -25,5 +25,9 @@ template: |
   H2: Como Usar: O Passo a Passo para Resultados Perfeitos
   H2: Textura e Sensorial: A Experiência na Pele
 
-  --- CONTEÚDO GERADO ---
-  Agora, gere o conteúdo HTML para cada seção, explicando a tecnologia de forma acessível e usando adjetivos que evocam a experiência de uso do produto.
+  --- INSTRUÇÃO DE MELHORIA CONTÍNUA ---
+  Com base na análise de SEO, aplique a seguinte melhoria estratégica ao gerar o conteúdo: "{{ melhoria_estrategica }}".
+  Isto é um refinamento sobre a estrutura original.
+
+  --- DIRETIVA DE SAÍDA FINAL ---
+  Sua resposta deve conter APENAS o código HTML. Não inclua introduções, comentários ou a marcação ```html. Sua resposta deve começar diretamente com a primeira tag HTML.
