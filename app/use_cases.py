@@ -7,11 +7,10 @@ import requests
 from .prompt_manager import PromptManager
 from .gemini_client import GeminiClient
 
-# Instancia os componentes centrais que serão usados pelos casos de uso.
 prompt_manager = PromptManager()
 gemini_client = GeminiClient()
 
-# --- FUNÇÃO CORRIGIDA ---
+
 def generate_medicine_content(product_name: str, bula_text: str) -> Dict[str, str]:
     """
     Gera a descrição completa para um medicamento a partir do texto da sua bula.
@@ -64,58 +63,60 @@ def generate_medicine_content(product_name: str, bula_text: str) -> Dict[str, st
         return {"error": error_msg}
 
 
-# --- OUTRAS FUNÇÕES (MANTIDAS COMO ESTAVAM) ---
 
-def summarize_text(text: str, length: int = 50) -> str:
-    final_prompt = prompt_manager.render("summarizer", text_to_summarize=text, length=length)
-    return gemini_client.execute_prompt(final_prompt)
 
-def classify_sentiment(text: str) -> str:
-    final_prompt = prompt_manager.render("sentiment_classifier", user_text=text)
-    return gemini_client.execute_prompt(final_prompt).strip().lower()
+#Comentado - VOLTAREMOS ESSES MÉTODOS NAS VERSÕES POSTERIORES
 
-def generate_formal_email(recipient_name: str, sender_name: str, tone: str, key_points: List[str]) -> str:
-    final_prompt = prompt_manager.render("email_generator", recipient_name=recipient_name, sender_name=sender_name, tone=tone, key_points=key_points)
-    return gemini_client.execute_prompt(final_prompt)
+# def summarize_text(text: str, length: int = 50) -> str:
+#     final_prompt = prompt_manager.render("summarizer", text_to_summarize=text, length=length)
+#     return gemini_client.execute_prompt(final_prompt)
 
-def analyze_news_from_url(url: str) -> dict:
-    try:
-        page = requests.get(url, timeout=10)
-        page.raise_for_status()
-        soup = BeautifulSoup(page.content, 'html.parser')
-        paragraphs = soup.find_all('p')
-        news_text = "\n".join([p.get_text() for p in paragraphs])
-        if not news_text:
-            return {"error": "A notícia está protegida por paywall ou não foi possível extrair o conteúdo."}
-    except requests.RequestException as e:
-        return {"error": f"Não foi possível acessar a URL: {e}"}
+# def classify_sentiment(text: str) -> str:
+#     final_prompt = prompt_manager.render("sentiment_classifier", user_text=text)
+#     return gemini_client.execute_prompt(final_prompt).strip().lower()
 
-    parsed_url = urlparse(url)
-    news_source = parsed_url.netloc.replace("www.", "")
-    analyzer_prompt = prompt_manager.render("news_analyzer", news_text=news_text, news_source=news_source)
-    analysis_raw = gemini_client.execute_prompt(analyzer_prompt)
+# def generate_formal_email(recipient_name: str, sender_name: str, tone: str, key_points: List[str]) -> str:
+#     final_prompt = prompt_manager.render("email_generator", recipient_name=recipient_name, sender_name=sender_name, tone=tone, key_points=key_points)
+#     return gemini_client.execute_prompt(final_prompt)
 
-    try:
-        json_start = analysis_raw.find('{')
-        json_end = analysis_raw.rfind('}') + 1
-        if json_start != -1 and json_end != 0:
-            json_str = analysis_raw[json_start:json_end]
-            analysis_data = json.loads(json_str)
-            if 'error' in analysis_data: return {"error": analysis_data['error']}
-        else:
-            raise json.JSONDecodeError("Nenhum objeto JSON encontrado na resposta.", analysis_raw, 0)
-    except json.JSONDecodeError:
-        return {"error": "O modelo não retornou uma análise em formato JSON válido."}
+# def analyze_news_from_url(url: str) -> dict:
+#     try:
+#         page = requests.get(url, timeout=10)
+#         page.raise_for_status()
+#         soup = BeautifulSoup(page.content, 'html.parser')
+#         paragraphs = soup.find_all('p')
+#         news_text = "\n".join([p.get_text() for p in paragraphs])
+#         if not news_text:
+#             return {"error": "A notícia está protegida por paywall ou não foi possível extrair o conteúdo."}
+#     except requests.RequestException as e:
+#         return {"error": f"Não foi possível acessar a URL: {e}"}
+
+#     parsed_url = urlparse(url)
+#     news_source = parsed_url.netloc.replace("www.", "")
+#     analyzer_prompt = prompt_manager.render("news_analyzer", news_text=news_text, news_source=news_source)
+#     analysis_raw = gemini_client.execute_prompt(analyzer_prompt)
+
+#     try:
+#         json_start = analysis_raw.find('{')
+#         json_end = analysis_raw.rfind('}') + 1
+#         if json_start != -1 and json_end != 0:
+#             json_str = analysis_raw[json_start:json_end]
+#             analysis_data = json.loads(json_str)
+#             if 'error' in analysis_data: return {"error": analysis_data['error']}
+#         else:
+#             raise json.JSONDecodeError("Nenhum objeto JSON encontrado na resposta.", analysis_raw, 0)
+#     except json.JSONDecodeError:
+#         return {"error": "O modelo não retornou uma análise em formato JSON válido."}
  
-    rewriter_prompt = prompt_manager.render("news_rewriter", news_text=news_text, analysis_json=json.dumps(analysis_data, indent=2, ensure_ascii=False))
-    materia_veritare = gemini_client.execute_prompt(rewriter_prompt)
-    por_tras_do_texto = analysis_data.get("subjective_fragments", [])
-    return {"materia_veritare": materia_veritare, "por_tras_do_texto": por_tras_do_texto}
+#     rewriter_prompt = prompt_manager.render("news_rewriter", news_text=news_text, analysis_json=json.dumps(analysis_data, indent=2, ensure_ascii=False))
+#     materia_veritare = gemini_client.execute_prompt(rewriter_prompt)
+#     por_tras_do_texto = analysis_data.get("subjective_fragments", [])
+#     return {"materia_veritare": materia_veritare, "por_tras_do_texto": por_tras_do_texto}
 
-def generate_vitamin_content(product_name: str, product_info: dict) -> str:
-    final_prompt = prompt_manager.render("vitamina_suplemento_generator", product_name=product_name, **product_info)
-    return gemini_client.execute_prompt(final_prompt)
+# def generate_vitamin_content(product_name: str, product_info: dict) -> str:
+#     final_prompt = prompt_manager.render("vitamina_suplemento_generator", product_name=product_name, **product_info)
+#     return gemini_client.execute_prompt(final_prompt)
 
-def generate_dermocosmetic_content(product_name: str, product_info: dict) -> str:
-    final_prompt = prompt_manager.render("dermocosmetico_generator", product_name=product_name, **product_info)
-    return gemini_client.execute_prompt(final_prompt)
+# def generate_dermocosmetic_content(product_name: str, product_info: dict) -> str:
+#     final_prompt = prompt_manager.render("dermocosmetico_generator", product_name=product_name, **product_info)
+#     return gemini_client.execute_prompt(final_prompt)

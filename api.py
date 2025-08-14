@@ -12,8 +12,6 @@ import pandas as pd
 
 # Importa os casos de uso da sua aplicação
 from app import use_cases
-# Importa os modelos de dados necessários para outros endpoints
-from data.analyze_news_models import AnalyzeNewsRequest, AnalyzeNewsResponse
 
 app = FastAPI(
     title="Gemini Application API",
@@ -32,44 +30,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Modelos Pydantic (mantidos para outros endpoints) ---
-class SummarizeRequest(BaseModel): text: str; length: int = 50
-class SummarizeResponse(BaseModel): summary: str
 class GenerateContentRequest(BaseModel): product_name: str; product_info: Dict
 class ContentResponse(BaseModel): content: str
 class MedicineContentResponse(BaseModel): html_content: str; seo_title: str; meta_description: str
 class OptimizeContentRequest(BaseModel): product_type: str; product_name: str; product_info: Dict[str, Any]
 
-# --- Endpoints Legado (Preservados para não quebrar outras funcionalidades) ---
-@app.post("/summarize", response_model=SummarizeResponse, tags=["Análise de Texto (Legado)"])
-def summarize_endpoint(request: SummarizeRequest):
-    return {"summary": use_cases.summarize_text(request.text, request.length)}
 
-@app.post("/analyze-news", response_model=AnalyzeNewsResponse, tags=["Análise de Texto (Legado)"])
-def analyze_news_endpoint(request: AnalyzeNewsRequest):
-    return use_cases.analyze_news_from_url(request.url)
-
-@app.post("/generate-vitamin-content", response_model=ContentResponse, tags=["Geração de Conteúdo Farma (Legado)"])
-def generate_vitamin_endpoint(request: GenerateContentRequest):
-    return {"content": use_cases.generate_vitamin_content(request.product_name, request.product_info)}
-
-@app.post("/generate-dermocosmetic-content", response_model=ContentResponse, tags=["Geração de Conteúdo Farma (Legado)"])
-def generate_dermocosmetic_endpoint(request: GenerateContentRequest):
-    return {"content": use_cases.generate_dermocosmetic_content(request.product_name, request.product_info)}
-
-@app.post("/optimize-content-stream", tags=["Otimização de Conteúdo com IA (Legado)"])
-def optimize_content_stream_endpoint(request: OptimizeContentRequest):
-    from app.pharma_seo_optimizer import SeoOptimizerAgent
-    from app.prompt_manager import PromptManager
-    from app.gemini_client import GeminiClient
-    optimizer = SeoOptimizerAgent(PromptManager(), GeminiClient())
-    async def event_stream():
-        for event in optimizer.run_optimization(request.product_type, request.product_name, request.product_info):
-            yield event
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-
-# --- NOVO ENDPOINT DE PROCESSAMENTO COM STREAMING DE LOGS (VERSÃO FINAL E CORRIGIDA) ---
 @app.post("/process-spreadsheet-stream", tags=["Processador Visual de Planilha"])
 async def process_spreadsheet_stream(
     spreadsheet: UploadFile = File(...),
@@ -80,8 +46,6 @@ async def process_spreadsheet_stream(
     Recebe os arquivos e transmite o progresso em tempo real (logs).
     Ao final, envia a planilha processada via um evento 'done'.
     """
-    # ETAPA PRELIMINAR: Ler todos os arquivos para a memória IMEDIATAMENTE.
-    # Isso evita o erro "I/O operation on closed file".
     try:
         spreadsheet_bytes = await spreadsheet.read()
         
