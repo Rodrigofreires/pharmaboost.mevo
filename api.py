@@ -69,94 +69,7 @@ def optimize_content_stream_endpoint(request: OptimizeContentRequest):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-# --- NOVO ENDPOINT PARA O PROCESSADOR VISUAL (VERSÃO FINAL) ---
-@app.post("/process-spreadsheet-visual", tags=["Processador Visual de Planilha"])
-async def process_spreadsheet_visual(
-    spreadsheet: UploadFile = File(...),
-    bulas: List[UploadFile] = File(...),
-    skus_json: str = Form(...) # Recebe os SKUs como uma string JSON do frontend
-):
-    """
-    Recebe uma planilha, múltiplos PDFs de bulas e uma lista JSON de SKUs.
-    Processa tudo em memória e retorna a planilha modificada para download.
-    """
-    # Nomes das colunas (baseado na sua planilha de exemplo)
-    COLUNA_ID_SKU = "_IDSKU (Não alterável)"
-    COLUNA_NOME_PRODUTO = "_NomeProduto (Obrigatório)"
-    COLUNA_V_HTML = "_BreveDescricaoProduto"
-    COLUNA_AD_TITULO = "_TituloSite"
-    COLUNA_AE_META_DESC = "_DescricaoMetaTag"
-
-    try:
-        # ETAPA 1: Carrega a planilha em memória usando a biblioteca pandas
-        print("Lendo o arquivo da planilha...")
-        spreadsheet_content = await spreadsheet.read()
-        df = pd.read_excel(io.BytesIO(spreadsheet_content))
-        print("Planilha carregada em memória com sucesso.")
-
-        # ETAPA 2: Processa a lista de SKUs recebida do frontend
-        sku_list = [int(s) for s in json.loads(skus_json)]
-        if len(sku_list) != len(bulas):
-            raise HTTPException(status_code=400, detail="A quantidade de SKUs não corresponde à quantidade de arquivos de bula enviados.")
-
-        # ETAPA 3: Itera sobre cada par (bula, sku) e processa
-        print(f"Iniciando processamento de {len(bulas)} par(es) de bula/SKU...")
-        for bula_file, sku in zip(bulas, sku_list):
-            print(f"--- Processando SKU: {sku} | Arquivo: {bula_file.filename} ---")
-            
-            # Localiza a linha correta na planilha usando o SKU como chave
-            linha_produto = df[df[COLUNA_ID_SKU] == sku]
-            if linha_produto.empty:
-                print(f"AVISO: SKU {sku} não encontrado na planilha. Pulando.")
-                continue
-            
-            index_linha = linha_produto.index[0]
-            nome_produto = linha_produto.iloc[0][COLUNA_NOME_PRODUTO]
-            
-            # Extrai o texto do arquivo PDF usando a biblioteca pypdf
-            bula_content = await bula_file.read()
-            reader = PdfReader(io.BytesIO(bula_content))
-            texto_da_bula = "".join(page.extract_text() + "\n" for page in reader.pages)
-            
-            if not texto_da_bula.strip():
-                print(f"AVISO: Não foi possível extrair texto do PDF para o SKU {sku}. Pulando.")
-                df.loc[index_linha, COLUNA_V_HTML] = "ERRO: Falha ao extrair texto do PDF."
-                continue
-
-            # Chama a IA para gerar o conteúdo (função que já existia em use_cases.py)
-            print(f"  Enviando para a IA para gerar conteúdo para '{nome_produto}'...")
-            conteudo_gerado = use_cases.generate_medicine_content(nome_produto, texto_da_bula)
-
-            # Atualiza o DataFrame (a planilha em memória) com os resultados
-            if "error" not in conteudo_gerado:
-                df.loc[index_linha, COLUNA_V_HTML] = conteudo_gerado.get("html_content")
-                df.loc[index_linha, COLUNA_AD_TITULO] = conteudo_gerado.get("seo_title")
-                df.loc[index_linha, COLUNA_AE_META_DESC] = conteudo_gerado.get("meta_description")
-                print(f"  SUCESSO: Conteúdo para SKU {sku} gerado e pronto para ser salvo.")
-            else:
-                df.loc[index_linha, COLUNA_V_HTML] = f"ERRO NA GERAÇÃO: {conteudo_gerado['error']}"
-                print(f"  ERRO da IA para SKU {sku}: {conteudo_gerado['error']}")
-            
-            # Pequena pausa para não sobrecarregar a API do Gemini
-            await asyncio.sleep(1)
-
-        # ETAPA 4: Prepara e retorna o arquivo Excel para download
-        print("Processamento concluído. Gerando arquivo Excel de saída...")
-        output_buffer = io.BytesIO()
-        df.to_excel(output_buffer, index=False, engine='openpyxl')
-        output_buffer.seek(0)
-
-        return Response(
-            content=output_buffer.read(),
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": "attachment; filename=planilha_processada.xlsx"}
-        )
-
-    except Exception as e:
-        print(f"Erro crítico no processamento visual: {e}")
-        raise HTTPException(status_code=500, detail=f"Ocorreu um erro interno no servidor: {str(e)}")
-
-# --- NOVO ENDPOINT DE PROCESSAMENTO COM STREAMING DE LOGS ---
+# --- NOVO ENDPOINT DE PROCESSAMENTO COM STREAMING DE LOGS (VERSÃO FINAL E CORRIGIDA) ---
 @app.post("/process-spreadsheet-stream", tags=["Processador Visual de Planilha"])
 async def process_spreadsheet_stream(
     spreadsheet: UploadFile = File(...),
@@ -167,26 +80,42 @@ async def process_spreadsheet_stream(
     Recebe os arquivos e transmite o progresso em tempo real (logs).
     Ao final, envia a planilha processada via um evento 'done'.
     """
-    async def event_stream():
-        # Função para enviar um log formatado para o frontend
-        async def send_log(message: str, type: str = "info"):
+    # ETAPA PRELIMINAR: Ler todos os arquivos para a memória IMEDIATAMENTE.
+    # Isso evita o erro "I/O operation on closed file".
+    try:
+        spreadsheet_bytes = await spreadsheet.read()
+        
+        # Lê todas as bulas para uma lista de tuplas (nome_do_arquivo, conteudo_em_bytes)
+        bulas_data = []
+        for bula_file in bulas:
+            content = await bula_file.read()
+            bulas_data.append((bula_file.filename, content))
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler os arquivos enviados: {e}")
+
+    # O gerador agora recebe os dados em bytes, e não os objetos UploadFile.
+    async def event_stream(spreadsheet_content: bytes, bulas_content: list):
+        
+        # Função auxiliar (corrotina que retorna a string do evento)
+        async def send_log(message: str, type: str = "info") -> str:
             log_data = {"message": message, "type": type}
-            yield f"event: log\ndata: {json.dumps(log_data)}\n\n"
+            return f"event: log\ndata: {json.dumps(log_data)}\n\n"
 
         try:
-            # ETAPA 1: Carregar Planilha
+            # ETAPA 1: Carregar Planilha a partir dos bytes
             yield await send_log("Lendo o arquivo da planilha...", "info")
-            spreadsheet_content = await spreadsheet.read()
+            # Usa io.BytesIO para que o pandas leia os dados da memória
             df = pd.read_excel(io.BytesIO(spreadsheet_content))
             yield await send_log("Planilha carregada em memória com sucesso.", "success")
 
             # ETAPA 2: Preparar dados
             sku_list = [int(s) for s in json.loads(skus_json)]
-            if len(sku_list) != len(bulas):
+            if len(sku_list) != len(bulas_content):
                 raise ValueError("A quantidade de SKUs não corresponde à quantidade de arquivos de bula.")
 
             # ETAPA 3: Processar cada bula
-            total_bulas = len(bulas)
+            total_bulas = len(bulas_content)
             yield await send_log(f"Iniciando processamento de {total_bulas} par(es) de bula/SKU...", "info")
             
             # Mapeamento de colunas
@@ -196,11 +125,11 @@ async def process_spreadsheet_stream(
             COLUNA_AD_TITULO = "_TituloSite"
             COLUNA_AE_META_DESC = "_DescricaoMetaTag"
 
-            for i, (bula_file, sku) in enumerate(zip(bulas, sku_list)):
+            # O loop agora itera sobre os dados que já lemos para a memória
+            for i, ((bula_filename, bula_bytes), sku) in enumerate(zip(bulas_content, sku_list)):
                 progress = f"({i+1}/{total_bulas})"
                 log_prefix = f"<b>[SKU: {sku}]</b> {progress}"
 
-                # Localizar linha
                 linha_produto = df[df[COLUNA_ID_SKU] == sku]
                 if linha_produto.empty:
                     yield await send_log(f"{log_prefix} Não encontrado na planilha. Pulando.", "warning")
@@ -210,21 +139,18 @@ async def process_spreadsheet_stream(
                 nome_produto = linha_produto.iloc[0][COLUNA_NOME_PRODUTO]
                 yield await send_log(f"{log_prefix} Processando '{nome_produto}'...", "info")
 
-                # Extrair texto do PDF
-                bula_content = await bula_file.read()
-                reader = PdfReader(io.BytesIO(bula_content))
+                # Extrair texto do PDF a partir dos bytes
+                reader = PdfReader(io.BytesIO(bula_bytes))
                 texto_da_bula = "".join(page.extract_text() + "\n" for page in reader.pages)
 
                 if not texto_da_bula.strip():
-                    yield await send_log(f"{log_prefix} Não foi possível extrair texto do PDF. Pulando.", "error")
+                    yield await send_log(f"{log_prefix} Não foi possível extrair texto do PDF ({bula_filename}). Pulando.", "error")
                     df.loc[index_linha, COLUNA_V_HTML] = "ERRO: Falha ao extrair texto do PDF."
                     continue
 
-                # Chamar a IA
                 yield await send_log(f"{log_prefix} Enviando para a IA...", "info")
                 conteudo_gerado = use_cases.generate_medicine_content(nome_produto, texto_da_bula)
 
-                # Atualizar DataFrame
                 if "error" not in conteudo_gerado:
                     df.loc[index_linha, COLUNA_V_HTML] = conteudo_gerado.get("html_content")
                     df.loc[index_linha, COLUNA_AD_TITULO] = conteudo_gerado.get("seo_title")
@@ -235,7 +161,7 @@ async def process_spreadsheet_stream(
                     yield await send_log(f"{log_prefix} ERRO da IA: {error_detail}", "error")
                     df.loc[index_linha, COLUNA_V_HTML] = f"ERRO NA GERAÇÃO: {conteudo_gerado['error']}"
                 
-                await asyncio.sleep(1) # Pausa para não sobrecarregar a API
+                await asyncio.sleep(1)
 
             # ETAPA 4: Enviar arquivo final
             yield await send_log("Processamento concluído. Gerando arquivo Excel de saída...", "info")
@@ -243,7 +169,6 @@ async def process_spreadsheet_stream(
             df.to_excel(output_buffer, index=False, engine='openpyxl')
             output_buffer.seek(0)
             
-            # Converte o arquivo para base64 para enviar via JSON
             excel_base64 = base64.b64encode(output_buffer.read()).decode('utf-8')
             
             done_data = {
@@ -253,8 +178,8 @@ async def process_spreadsheet_stream(
             yield f"event: done\ndata: {json.dumps(done_data)}\n\n"
 
         except Exception as e:
-            # Envia um evento de erro fatal para o frontend
-            error_data = {"message": f"Erro crítico no servidor: {str(e)}", "type": "error"}
+            error_data = {"message": f"Erro crítico no processamento: {str(e)}", "type": "error"}
             yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    
+    # Inicia o streaming, passando os dados já lidos como argumentos para o gerador.
+    return StreamingResponse(event_stream(spreadsheet_bytes, bulas_data), media_type="text/event-stream")

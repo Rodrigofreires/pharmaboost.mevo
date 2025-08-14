@@ -24,10 +24,14 @@ template: |
       - A linguagem deve ser clara e educativa para o consumidor final, traduzindo o "tecniquês" da bula para um formato compreensível, mas sempre fiel à informação original.
 
   2.  `seo_title`:
-      - Crie um título para o site (Meta Title) otimizado para SEO, com no máximo 60 caracteres. Deve ser chamativo e conter o nome do produto.
+      - Crie um título para o site (Meta Title) otimizado para SEO, com no máximo 60 caracteres. Deve ser chamativo e conter o nome do produto. Exemplo: "Bula de {{ product_name }}: Para que serve e como usar?"
 
   3.  `meta_description`:
-      - Crie uma meta descrição otimizada para SEO, com no máximo 155 caracteres. Deve ser um resumo atrativo, destacando os benefícios e incentivando o clique.
+      - **INSTRUÇÃO REFORÇADA:** Crie uma meta descrição otimizada para SEO, com no máximo 155 caracteres.
+      - **FOCO OBRIGATÓRIO:** A descrição **deve** resumir as principais indicações do medicamento (a seção "para que serve?"). Comece diretamente com a utilidade do produto.
+      - **PROIBIÇÃO EXPLÍCITA:** É **expressamente proibido** usar slogans genéricos, jargões de marketing, menções a preço (como 'precinho', 'barato', 'promoção'), nomes de lojas/farmácias ou chamadas para ação vazias (como 'clique aqui').
+      - **OBJETIVO:** Informe o usuário sobre o benefício principal do medicamento para incentivá-lo a clicar para saber mais.
+      - **EXEMPLO DE ESTILO A SEGUIR:** "O {{ product_name }} é indicado para o alívio de dores de cabeça, febre e dores no corpo. Veja a bula completa, posologia e contraindicações."
 
   **Exemplo de estilo de conteúdo a ser seguido para o `html_content`:**
   (Use o exemplo abaixo como inspiração para o TOM e a ESTRUTURA, mas baseie-se SEMPRE na bula fornecida)

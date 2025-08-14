@@ -1,7 +1,9 @@
-# app/pharma_seo_optimizer.py (Versão 7.1 - Limpeza de Saída Robusta)
 import json
 import os
+import fcntl
+import time
 from typing import Dict, Any, Tuple
+from datetime import datetime, timezone
 
 from .prompt_manager import PromptManager
 from .gemini_client import GeminiClient
@@ -18,45 +20,82 @@ class SeoOptimizerAgent:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.ledger_file = os.path.join(project_root, 'estrategias_pharma_seo.json')
 
-    def _get_strategy_context(self, n: int = 5) -> Tuple[str, str]:
-        if not os.path.exists(self.ledger_file):
-            return "Nenhuma ainda.", "Nenhuma ainda."
+    def _update_ledger(self, update_function):
+        """
+        Função central e segura para ler, modificar e salvar o arquivo JSON,
+        usando file locking para prevenir condições de corrida.
+        """
         try:
-            with open(self.ledger_file, 'r', encoding='utf-8') as f:
-                if os.path.getsize(self.ledger_file) == 0: return "Nenhuma ainda.", "Nenhuma ainda."
-                ledger = json.load(f)
-            
-            successful = sorted([s for s in ledger if s.get('melhora_score', 0) > 0], key=lambda x: x.get('melhora_score', 0), reverse=True)
-            failed = sorted([s for s in ledger if s.get('melhora_score', 0) <= 0], key=lambda x: x.get('timestamp', ''), reverse=True)
-            
-            successful_strategies = "\n".join([f"- {item['estrategia_aplicada']}" for item in successful[:n]]) or "Nenhuma ainda."
-            failed_strategies = "\n".join([f"- {item['estrategia_aplicada']}" for item in failed[:n]]) or "Nenhuma ainda."
-            
-            return successful_strategies, failed_strategies
-        except (json.JSONDecodeError, FileNotFoundError):
+            with open(self.ledger_file, 'a+', encoding='utf-8') as f:
+                while True:
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except (IOError, BlockingIOError):
+                        time.sleep(0.1) 
+
+                f.seek(0)
+                content = f.read()
+                
+                ledger = json.loads(content) if content else []
+
+                updated_ledger = update_function(ledger)
+                
+                f.seek(0)
+                json.dump(updated_ledger, f, indent=2, ensure_ascii=False)
+                f.truncate()
+                
+                # Libera o lock
+                fcntl.flock(f, fcntl.LOCK_UN)
+                
+                return updated_ledger
+
+        except (IOError, FileNotFoundError, json.JSONDecodeError):
+            # Em caso de erro, garante que o lock seja liberado se ele foi adquirido
+            try: fcntl.flock(f, fcntl.LOCK_UN)
+            except: pass
+            return []
+
+    def _get_strategy_context(self, n: int = 5) -> Tuple[str, str]:
+        """
+        Lê e atualiza o contador de leitura das estratégias de forma segura.
+        """
+        def update_read_counts(ledger):
+            for strategy in ledger:
+                strategy['quantidade_lida'] = strategy.get('quantidade_lida', 0) + 1
+            return ledger
+
+        ledger = self._update_ledger(update_read_counts)
+        
+        if not ledger:
             return "Nenhuma ainda.", "Nenhuma ainda."
 
-    def _save_strategy_to_ledger(self, strategy: str, old_score: int, new_score: int, product_type: str):
-        ledger = []
-        if os.path.exists(self.ledger_file) and os.path.getsize(self.ledger_file) > 0:
-            try:
-                with open(self.ledger_file, 'r', encoding='utf-8') as f:
-                    ledger = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                ledger = []
+        successful = sorted([s for s in ledger if s.get('melhora_score', 0) > 0], key=lambda x: x.get('melhora_score', 0), reverse=True)
+        failed = sorted([s for s in ledger if s.get('melhora_score', 0) <= 0], key=lambda x: x.get('timestamp', ''), reverse=True)
         
-        from datetime import datetime, timezone
-        record = {
-            "estrategia_aplicada": strategy,
-            "tipo_de_produto": product_type,
-            "texto_original_score": old_score,
-            "novo_texto_score": new_score,
-            "melhora_score": new_score - old_score,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        ledger.append(record)
-        with open(self.ledger_file, 'w', encoding='utf-8') as f:
-            json.dump(ledger, f, indent=2, ensure_ascii=False)
+        successful_strategies = "\n".join([f"- {item['estrategia_aplicada']}" for item in successful[:n]]) or "Nenhuma ainda."
+        failed_strategies = "\n".join([f"- {item['estrategia_aplicada']}" for item in failed[:n]]) or "Nenhuma ainda."
+        
+        return successful_strategies, failed_strategies
+
+    def _save_strategy_to_ledger(self, strategy: str, old_score: int, new_score: int, product_type: str):
+        """
+        Salva uma nova estratégia no arquivo de forma segura.
+        """
+        def add_new_record(ledger):
+            record = {
+                "estrategia_aplicada": strategy,
+                "tipo_de_produto": product_type,
+                "texto_original_score": old_score,
+                "novo_texto_score": new_score,
+                "melhora_score": new_score - old_score,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "quantidade_lida": 0
+            }
+            ledger.append(record)
+            return ledger
+
+        self._update_ledger(add_new_record)
 
     def _get_strategy_suggestion(self, feedback: str, successful: str, failed: str) -> str:
         """Pede ao Gemini uma nova estratégia com base no contexto."""
@@ -92,10 +131,7 @@ class SeoOptimizerAgent:
         
         raw_initial_content = self.gemini_client.execute_prompt(self.prompt_manager.render(generator_prompt_name, **initial_context))
         
-        # ### INÍCIO DA CORREÇÃO ###
-        # Garante que o conteúdo inicial seja sempre HTML puro para a análise
         initial_content = raw_initial_content.replace("```html", "").replace("```", "").strip()
-        # ### FIM DA CORREÇÃO ###
 
         if "error" in initial_content:
             yield emit_event("error", {"message": "Falha ao gerar o conteúdo inicial.", "details": initial_content})
