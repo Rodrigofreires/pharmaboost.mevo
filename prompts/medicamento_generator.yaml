@@ -14,6 +14,10 @@ template: |
   {{ bula_text }}
   ---
 
+  --- INSTRUÇÃO DE MELHORIA CONTÍNUA ---
+  Com base na análise de SEO, aplique a seguinte melhoria estratégica ao gerar o conteúdo: "{{ melhoria_estrategica }}".
+  Isto é um refinamento sobre a estrutura original e as regras. A sua tarefa é integrar esta instrução de forma inteligente para melhorar o resultado final, mantendo-se fiel à bula.
+
   **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
   Sua resposta deve ser **APENAS** um objeto JSON válido, sem nenhum texto ou comentário antes ou depois. O JSON deve conter três chaves:
 

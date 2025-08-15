@@ -34,18 +34,25 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .review-card-approved {
+            border-color: #22c55e;
+            background-color: #f0fdf4;
+        }
+        .review-card-disapproved {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-blue-600">Processador de Conteúdo MEVO</h1>
             <p class="text-gray-600 mt-2">Faça o upload dos arquivos, associe os SKUs e inicie o processamento.</p>
         </header>
 
         <main class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-6">
-            <!-- Passo 1: Planilha -->
             <div>
                 <h2 class="text-xl font-semibold mb-2">Passo 1: Carregue a Planilha de Produtos</h2>
                 <label for="spreadsheet-upload" class="file-label" id="spreadsheet-label">
@@ -55,7 +62,6 @@
                 <input type="file" id="spreadsheet-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
             </div>
 
-            <!-- Passo 2: Bulas e Mapeamento -->
             <div>
                 <h2 class="text-xl font-semibold mb-2">Passo 2: Carregue as Bulas e Associe os SKUs</h2>
                 <label for="bulas-upload" class="file-label" id="bulas-label">
@@ -66,7 +72,6 @@
                 <div id="file-sku-mapping-area" class="mt-4 space-y-3"></div>
             </div>
 
-            <!-- Botão de Ação -->
             <div class="text-center pt-4">
                 <button id="process-button" class="w-full md:w-auto bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mx-auto">
                     <span id="button-text">Processar Planilha</span>
@@ -74,10 +79,24 @@
                 </button>
             </div>
         </main>
+        
+        <section id="review-section" class="mt-10 hidden">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Revisão e Aprovação</h2>
+                <p class="text-gray-500 mt-2">Revise o conteúdo gerado. Itens reprovados não serão incluídos na planilha final.</p>
+            </div>
+            
+            <div id="review-area" class="space-y-8"></div>
 
-        <!-- Seção de Resultados / LOGS -->
+            <div class="mt-8 text-center">
+                 <button id="finalize-button" class="w-full md:w-1/2 bg-green-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                    Finalizar e Gerar Planilha com Itens Aprovados
+                </button>
+            </div>
+        </section>
+
         <footer id="results-section" class="mt-8 bg-white p-6 md:p-8 rounded-xl shadow-lg hidden">
-            <h2 class="text-2xl font-semibold mb-4 text-center">Log de Processamento em Tempo Real</h2>
+            <h2 class="text-2xl font-semibold mb-4 text-center">Log de Processamento</h2>
             <div id="status-messages" class="space-y-1 text-sm font-mono max-h-80 overflow-y-auto p-4 bg-gray-900 text-white rounded-lg"></div>
             <div id="download-area" class="mt-6 text-center hidden">
                 <a id="download-link" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 inline-block">
@@ -87,154 +106,282 @@
         </footer>
     </div>
 
-    <script>
-        // --- Seletores de Elementos ---
-        const spreadsheetUpload = document.getElementById('spreadsheet-upload');
-        const spreadsheetLabel = document.getElementById('spreadsheet-label');
-        const spreadsheetText = document.getElementById('spreadsheet-text');
-        const bulasUpload = document.getElementById('bulas-upload');
-        const bulasLabel = document.getElementById('bulas-label');
-        const bulasText = document.getElementById('bulas-text');
-        const fileSkuMappingArea = document.getElementById('file-sku-mapping-area');
-        const processButton = document.getElementById('process-button');
-        const buttonText = document.getElementById('button-text');
-        const buttonLoader = document.getElementById('button-loader');
-        const resultsSection = document.getElementById('results-section');
-        const statusMessages = document.getElementById('status-messages');
-        const downloadArea = document.getElementById('download-area');
-        const downloadLink = document.getElementById('download-link');
+<script>
+    // --- Seletores de Elementos ---
+    const spreadsheetUpload = document.getElementById('spreadsheet-upload');
+    const spreadsheetLabel = document.getElementById('spreadsheet-label');
+    const spreadsheetText = document.getElementById('spreadsheet-text');
+    const bulasUpload = document.getElementById('bulas-upload');
+    const bulasLabel = document.getElementById('bulas-label');
+    const bulasText = document.getElementById('bulas-text');
+    const fileSkuMappingArea = document.getElementById('file-sku-mapping-area');
+    const processButton = document.getElementById('process-button');
+    const buttonText = document.getElementById('button-text');
+    const buttonLoader = document.getElementById('button-loader');
+    const resultsSection = document.getElementById('results-section');
+    const statusMessages = document.getElementById('status-messages');
+    const downloadArea = document.getElementById('download-area');
+    const downloadLink = document.getElementById('download-link');
+    const reviewSection = document.getElementById('review-section');
+    const reviewArea = document.getElementById('review-area');
+    const finalizeButton = document.getElementById('finalize-button');
 
-        // --- Event Listeners para UI ---
-        spreadsheetUpload.addEventListener('change', () => {
-            spreadsheetText.textContent = spreadsheetUpload.files.length > 0 ? spreadsheetUpload.files[0].name : 'Clique para selecionar a planilha (.xlsx)';
-            spreadsheetLabel.classList.toggle('border-green-500', spreadsheetUpload.files.length > 0);
-            spreadsheetLabel.classList.toggle('bg-green-50', spreadsheetUpload.files.length > 0);
+    // --- Variáveis de Estado ---
+    let reviewData = {}; 
+    let reviewStatus = {}; 
+
+    // --- Event Listeners para UI ---
+    spreadsheetUpload.addEventListener('change', () => {
+        spreadsheetText.textContent = spreadsheetUpload.files.length > 0 ? spreadsheetUpload.files[0].name : 'Clique para selecionar a planilha (.xlsx)';
+        spreadsheetLabel.classList.toggle('border-green-500', spreadsheetUpload.files.length > 0);
+        spreadsheetLabel.classList.toggle('bg-green-50', spreadsheetUpload.files.length > 0);
+    });
+
+    bulasUpload.addEventListener('change', () => {
+        bulasText.textContent = bulasUpload.files.length > 0 ? `${bulasUpload.files.length} bula(s) selecionada(s)` : 'Clique para selecionar um ou mais PDFs';
+        bulasLabel.classList.toggle('border-green-500', bulasUpload.files.length > 0);
+        bulasLabel.classList.toggle('bg-green-50', bulasUpload.files.length > 0);
+        renderFileSkuMapping();
+    });
+
+    // --- Funções de UI ---
+    function renderFileSkuMapping() {
+        fileSkuMappingArea.innerHTML = '';
+        if (bulasUpload.files.length === 0) return;
+        const header = document.createElement('div');
+        header.className = 'grid grid-cols-2 gap-4 font-semibold text-gray-600 px-2';
+        header.innerHTML = `<span>Arquivo PDF</span><span>SKU Correspondente</span>`;
+        fileSkuMappingArea.appendChild(header);
+        Array.from(bulasUpload.files).forEach((file, index) => {
+            const mappingRow = document.createElement('div');
+            mappingRow.className = 'grid grid-cols-2 gap-4 items-center';
+            mappingRow.innerHTML = `
+                <div class="text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate">${file.name}</div>
+                <input type="number" class="sku-input w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Digite o SKU aqui" data-file-index="${index}">
+            `;
+            fileSkuMappingArea.appendChild(mappingRow);
         });
+    }
+    
+    function addStatusMessage(message, type = 'info') {
+        const p = document.createElement('p');
+        const typeClasses = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
+        p.className = `py-1 ${typeClasses[type]}`;
+        const time = new Date().toLocaleTimeString();
+        p.innerHTML = `<span class="text-cyan-400">[${time}]</span> ${message}`;
+        statusMessages.appendChild(p);
+        statusMessages.scrollTop = statusMessages.scrollHeight;
+    }
 
-        bulasUpload.addEventListener('change', () => {
-            bulasText.textContent = bulasUpload.files.length > 0 ? `${bulasUpload.files.length} bula(s) selecionada(s)` : 'Clique para selecionar um ou mais PDFs';
-            bulasLabel.classList.toggle('border-green-500', bulasUpload.files.length > 0);
-            bulasLabel.classList.toggle('bg-green-50', bulasUpload.files.length > 0);
-            renderFileSkuMapping();
+    function handleDownload(data) {
+        const byteCharacters = atob(data.file_data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.download = data.filename;
+        downloadArea.classList.remove('hidden');
+    }
+
+    function renderReviewItem(item) {
+        const sku = item.sku;
+        reviewData[sku] = item;
+        reviewStatus[sku] = 'pending';
+
+        const card = document.createElement('div');
+        card.id = `card-${sku}`;
+        card.className = 'p-5 border-2 rounded-xl shadow-md bg-white transition-all duration-300 space-y-6';
+        
+        // --- NOVO LAYOUT VERTICAL ---
+        card.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center pb-4 border-b">
+                <div class="mb-2 sm:mb-0">
+                    <h3 class="font-bold text-xl text-blue-800">SKU: ${sku}</h3>
+                    <p class="text-md text-gray-600">${item.product_name}</p>
+                </div>
+                <div id="actions-${sku}" class="flex items-center space-x-3">
+                    <button onclick="disapproveItem(${sku})" class="disapprove-btn bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 font-semibold">Reprovar</button>
+                    <button onclick="approveItem(${sku})" class="approve-btn bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 font-semibold">Aprovar</button>
+                </div>
+                <div id="status-badge-${sku}" class="hidden"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="title-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Título SEO</label>
+                    <textarea id="title-${sku}" rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg">${item.seo_title}</textarea>
+                </div>
+                <div>
+                    <label for="meta-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Meta Descrição</label>
+                    <textarea id="meta-${sku}" rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg">${item.meta_description}</textarea>
+                </div>
+            </div>
+            
+            <div>
+                <label for="html-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
+                <textarea id="html-${sku}" rows="15" class="data-input w-full p-2 border border-gray-300 rounded-lg font-mono text-xs">${item.html_content}</textarea>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <label class="block text-sm font-medium text-gray-700 mb-2 text-center">Preview Visual</label>
+                <iframe id="preview-${sku}" class="w-full h-full border bg-white rounded-lg" style="min-height: 500px;"></iframe>
+            </div>
+        `;
+        reviewArea.appendChild(card);
+        
+        const iframe = document.getElementById(`preview-${sku}`);
+        iframe.srcdoc = item.html_content;
+        document.getElementById(`html-${sku}`).addEventListener('input', (e) => {
+            iframe.srcdoc = e.target.value;
         });
+    }
 
-        // --- Funções de UI ---
-        function renderFileSkuMapping() {
-            fileSkuMappingArea.innerHTML = '';
-            if (bulasUpload.files.length === 0) return;
+    function setItemStatus(sku, status) {
+        reviewStatus[sku] = status;
+        const card = document.getElementById(`card-${sku}`);
+        const actionsDiv = document.getElementById(`actions-${sku}`);
+        const statusBadge = document.getElementById(`status-badge-${sku}`);
 
-            const header = document.createElement('div');
-            header.className = 'grid grid-cols-2 gap-4 font-semibold text-gray-600 px-2';
-            header.innerHTML = `<span>Arquivo PDF</span><span>SKU Correspondente</span>`;
-            fileSkuMappingArea.appendChild(header);
+        card.classList.remove('review-card-approved', 'review-card-disapproved');
+        actionsDiv.classList.add('hidden');
+        statusBadge.classList.remove('hidden');
 
-            Array.from(bulasUpload.files).forEach((file, index) => {
-                const mappingRow = document.createElement('div');
-                mappingRow.className = 'grid grid-cols-2 gap-4 items-center';
-                const fileNameDiv = document.createElement('div');
-                fileNameDiv.className = 'text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate';
-                fileNameDiv.textContent = file.name;
-                const skuInput = document.createElement('input');
-                skuInput.type = 'number';
-                skuInput.className = 'sku-input w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500';
-                skuInput.placeholder = 'Digite o SKU aqui';
-                skuInput.dataset.fileIndex = index;
-                mappingRow.appendChild(fileNameDiv);
-                mappingRow.appendChild(skuInput);
-                fileSkuMappingArea.appendChild(mappingRow);
-            });
+        if (status === 'approved') {
+            card.classList.add('review-card-approved');
+            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
+            reviewData[sku].seo_title = document.getElementById(`title-${sku}`).value;
+            reviewData[sku].meta_description = document.getElementById(`meta-${sku}`).value;
+            reviewData[sku].html_content = document.getElementById(`html-${sku}`).value;
+        } else if (status === 'disapproved') {
+            card.classList.add('review-card-disapproved');
+            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
         }
+        checkFinalizeButtonState();
+    }
 
-        function addStatusMessage(message, type = 'info') {
-            const p = document.createElement('p');
-            const typeClasses = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
-            p.className = `py-1 ${typeClasses[type]}`;
-            const time = new Date().toLocaleTimeString();
-            p.innerHTML = `<span class="text-cyan-400">[${time}]</span> ${message}`;
-            statusMessages.appendChild(p);
-            statusMessages.scrollTop = statusMessages.scrollHeight;
-        }
+    function approveItem(sku) { setItemStatus(sku, 'approved'); }
+    function disapproveItem(sku) { setItemStatus(sku, 'disapproved'); }
 
-        function handleDownload(data) {
-            const byteCharacters = atob(data.file_data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
+    function checkFinalizeButtonState() {
+        const statuses = Object.values(reviewStatus);
+        const hasPending = statuses.some(s => s === 'pending');
+        const hasApproved = statuses.some(s => s === 'approved');
+        finalizeButton.disabled = hasPending || !hasApproved;
+    }
+
+    // --- Lógica Principal de Processamento ---
+    processButton.addEventListener('click', async () => {
+        if (spreadsheetUpload.files.length === 0) { alert('Por favor, selecione a planilha de produtos.'); return; }
+        const skuInputs = document.querySelectorAll('.sku-input');
+        if (skuInputs.length === 0) { alert('Por favor, selecione pelo menos um arquivo PDF de bula.'); return; }
+        const skus = Array.from(skuInputs).map(input => input.value.trim());
+        if (skus.some(sku => sku === '')) { alert('Por favor, preencha o SKU para todos os arquivos de bula selecionados.'); return; }
+
+        processButton.disabled = true;
+        buttonText.textContent = 'Processando...';
+        buttonLoader.classList.remove('hidden');
+        resultsSection.classList.remove('hidden');
+        reviewSection.classList.add('hidden');
+        reviewArea.innerHTML = '';
+        reviewData = {};
+        reviewStatus = {};
+        finalizeButton.disabled = true;
+        statusMessages.innerHTML = '';
+        downloadArea.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('spreadsheet', spreadsheetUpload.files[0]);
+        Array.from(bulasUpload.files).forEach(file => formData.append('bulas', file));
+        formData.append('skus_json', JSON.stringify(skus));
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/process-for-review', { method: 'POST', body: formData });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Erro do servidor: ${response.statusText}`);
             }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const url = window.URL.createObjectURL(blob);
-            downloadLink.href = url;
-            downloadLink.download = data.filename;
-            downloadArea.classList.remove('hidden');
-        }
 
-        // --- Lógica Principal de Processamento ---
-        processButton.addEventListener('click', async () => {
-            if (spreadsheetUpload.files.length === 0) { alert('Por favor, selecione a planilha de produtos.'); return; }
-            const skuInputs = document.querySelectorAll('.sku-input');
-            if (skuInputs.length === 0) { alert('Por favor, selecione pelo menos um arquivo PDF de bula.'); return; }
-            const skus = Array.from(skuInputs).map(input => input.value.trim());
-            if (skus.some(sku => sku === '')) { alert('Por favor, preencha o SKU para todos os arquivos de bula selecionados.'); return; }
-
-            processButton.disabled = true;
-            buttonText.textContent = 'Processando...';
-            buttonLoader.classList.remove('hidden');
-            resultsSection.classList.remove('hidden');
-            statusMessages.innerHTML = '';
-            downloadArea.classList.add('hidden');
-
-            const formData = new FormData();
-            formData.append('spreadsheet', spreadsheetUpload.files[0]);
-            Array.from(bulasUpload.files).forEach(file => formData.append('bulas', file));
-            formData.append('skus_json', JSON.stringify(skus));
-
-            try {
-                const response = await fetch('http://127.0.0.1:8000/process-spreadsheet-stream', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || `Erro do servidor: ${response.statusText}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) {
+                    addStatusMessage("Processamento concluído. Aguardando sua revisão e aprovação...", "success");
+                    if (Object.keys(reviewData).length > 0) {
+                        reviewSection.classList.remove('hidden');
+                    } else {
+                        addStatusMessage("Nenhum item válido foi encontrado para revisão.", "warning");
+                    }
+                    break;
                 }
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n\n').filter(line => line.trim() !== '');
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n\n').filter(line => line.trim() !== '');
-
-                    for (const line of lines) {
-                        if (line.startsWith('event: log')) {
-                            const dataStr = line.substring(line.indexOf('data: ') + 6);
-                            const logData = JSON.parse(dataStr);
-                            addStatusMessage(logData.message, logData.type);
-                        } else if (line.startsWith('event: done')) {
-                            const dataStr = line.substring(line.indexOf('data: ') + 6);
-                            const doneData = JSON.parse(dataStr);
-                            handleDownload(doneData);
-                        } else if (line.startsWith('event: error')) {
-                            const dataStr = line.substring(line.indexOf('data: ') + 6);
-                            const errorData = JSON.parse(dataStr);
-                            addStatusMessage(errorData.message, errorData.type);
-                        }
+                for (const line of lines) {
+                    if (line.startsWith('event: log')) {
+                        const logData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
+                        addStatusMessage(logData.message, logData.type);
+                    } else if (line.startsWith('event: review_item')) {
+                        const itemData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
+                        renderReviewItem(itemData);
+                    } else if (line.startsWith('event: error')) {
+                         const errorData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
+                         addStatusMessage(errorData.message, errorData.type);
                     }
                 }
-            } catch (error) {
-                console.error('Erro no processamento:', error);
-                addStatusMessage(`Falha na conexão com a API: ${error.message}`, 'error');
-            } finally {
-                buttonText.textContent = 'Processar Planilha';
-                buttonLoader.classList.add('hidden');
-                processButton.disabled = false;
             }
-        });
-    </script>
+        } catch (error) {
+            console.error('Erro no processamento:', error);
+            addStatusMessage(`Falha na conexão com a API: ${error.message}`, 'error');
+        } finally {
+            buttonText.textContent = 'Processar Novamente';
+            buttonLoader.classList.add('hidden');
+            processButton.disabled = false;
+        }
+    });
+
+    // --- Lógica de Finalização ---
+    finalizeButton.addEventListener('click', async () => {
+        finalizeButton.disabled = true;
+        finalizeButton.textContent = 'Finalizando...';
+        addStatusMessage("Enviando dados aprovados para o servidor...", "info");
+
+        const approvedData = Object.keys(reviewData)
+            .filter(sku => reviewStatus[sku] === 'approved')
+            .map(sku => reviewData[sku]);
+
+        if (approvedData.length === 0) {
+            addStatusMessage("Nenhum item foi aprovado. Nada a finalizar.", "warning");
+            finalizeButton.textContent = 'Finalizar e Gerar Planilha com Itens Aprovados';
+            return;
+        }
+
+        try {
+            const finalFormData = new FormData();
+            finalFormData.append('spreadsheet', spreadsheetUpload.files[0]);
+            finalFormData.append('approved_data_json', JSON.stringify(approvedData));
+
+            const response = await fetch('http://127.0.0.1:8000/finalize-spreadsheet', { method: 'POST', body: finalFormData });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Falha ao finalizar a planilha.');
+            }
+            
+            const result = await response.json();
+            handleDownload(result);
+            addStatusMessage(`Planilha final gerada com ${approvedData.length} item(ns) aprovado(s)!`, "success");
+
+        } catch (error) {
+            console.error('Erro na finalização:', error);
+            addStatusMessage(`Erro ao gerar a planilha final: ${error.message}`, 'error');
+        } finally {
+            finalizeButton.textContent = 'Finalizar e Gerar Planilha com Itens Aprovados';
+        }
+    });
+</script>
 </body>
 </html>

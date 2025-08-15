@@ -28,15 +28,12 @@ class GeminiClient:
         try:
             model_name = settings.DEFAULT_MODEL
             
-            # --- CORREÇÃO PRINCIPAL ---
-            # O argumento é 'config', e não 'generation_config'.
-            # Ele recebe um objeto GenerateContentConfig com os kwargs (ex: temperature).
             config = types.GenerateContentConfig(**kwargs) if kwargs else None
 
             response = self.client.models.generate_content(
                 model=f'models/{model_name}',
                 contents=prompt_text,
-                config=config  # <-- O argumento correto, conforme a documentação
+                config=config  
             )
             
             if response and hasattr(response, 'text') and response.text:
