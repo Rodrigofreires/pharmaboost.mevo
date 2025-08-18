@@ -19,7 +19,9 @@ template: |
   Isto é um refinamento sobre a estrutura original e as regras. A sua tarefa é integrar esta instrução de forma inteligente para melhorar o resultado final, mantendo-se fiel à bula.
 
   **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
-  Sua resposta deve ser **APENAS** um objeto JSON válido, sem nenhum texto ou comentário antes ou depois. O JSON deve conter três chaves:
+  Sua resposta deve ser **APENAS** um objeto JSON válido. Não inclua introduções, comentários ou a marcação json. O valor da chave `html_content` deve conter apenas o código HTML, sem estar envolvido por marcações como.
+
+  O JSON deve conter três chaves:
 
   1.  `html_content`:
       - Crie um conteúdo HTML para a página do produto.
@@ -40,11 +42,11 @@ template: |
   **Exemplo de estilo de conteúdo a ser seguido para o `html_content`:**
   (Use o exemplo abaixo como inspiração para o TOM e a ESTRUTURA, mas baseie-se SEMPRE na bula fornecida)
   "
-  H1: Paracetamol Teuto Genérico
-  H2: Qual a indicação do Paracetamol Teuto Genérico?
-  Paracetamol é um analgésico e antitérmico indicado para o alívio de dores de cabeça, dores associadas a gripes e resfriados, dor de dente, dor de garganta e para a redução da febre.
-  H2: Como este medicamento funciona?
-  Ele atua no sistema nervoso central para diminuir a sensibilidade à dor e regular a temperatura corporal.
+  <h1>Paracetamol Teuto Genérico</h1>
+  <h2>Qual a indicação do Paracetamol Teuto Genérico?</h2>
+  <p>Paracetamol é um analgésico e antitérmico indicado para o alívio de dores de cabeça, dores associadas a gripes e resfriados, dor de dente, dor de garganta e para a redução da febre.</p>
+  <h2>Como este medicamento funciona?</h2>
+  <p>Ele atua no sistema nervoso central para diminuir a sensibilidade à dor e regular a temperatura corporal.</p>
   ... (continue estruturando as demais seções da bula)
   "
 

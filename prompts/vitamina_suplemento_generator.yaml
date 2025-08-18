@@ -29,4 +29,4 @@ template: |
   Isto é um refinamento sobre a estrutura original.
 
   --- DIRETIVA DE SAÍDA FINAL ---
-  Sua resposta deve conter APENAS o código HTML. Não inclua introduções, comentários ou a marcação ```html. Sua resposta deve começar diretamente com a primeira tag HTML.
+  Sua resposta deve conter APENAS o código HTML. Não inclua introduções, comentários ou a marcação. Sua resposta deve começar diretamente com a primeira tag HTML.

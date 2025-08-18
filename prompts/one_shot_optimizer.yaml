@@ -12,14 +12,13 @@ template: |
       - Nome: {{ product_name }}
 
   2.  **VERSÃO INICIAL DO TEXTO:**
-      ```html
       {{ initial_content }}
-      ```
+      
 
   3.  **ANÁLISE INICIAL E PONTOS FRACOS:**
       - Score Inicial: {{ initial_score }} / 100
       - Pontos Fracos a Corrigir:
-      {{ feedback }}
+      {{ feedback }}  
 
   4.  **APRENDIZADO HISTÓRICO (Estratégias Anteriores):**
       - Estratégias que FUNCIONARAM bem no passado (use como inspiração):
@@ -50,6 +49,6 @@ template: |
 
   2.  **REESCRITA:** Aplique seu plano e reescreva o texto HTML.
 
-  3.  **SAÍDA FINAL:** Retorne **APENAS o código HTML completo e otimizado**.
+  3.  **SAÍDA FINAL:** Retorne **APENAS o código HTML completo e otimizado**. Não inclua introduções, comentários ou a marcação. Sua resposta deve começar diretamente com a primeira tag HTML.
 
   --- CÓDIGO HTML OTIMIZADO ---

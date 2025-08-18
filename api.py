@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import pandas as pd
+import openpyxl # Importação adicionada
 from pypdf import PdfReader
 from bs4 import BeautifulSoup
 
@@ -17,11 +18,10 @@ from app import use_cases
 app = FastAPI(
     title="Gemini Application API",
     description="API para acessar casos de uso baseados no Gemini, com fluxo de revisão humana e otimização contínua.",
-    version="3.8.0" # Versão com 5 Tentativas e Retorno do Melhor Score
+    version="3.8.1" # Versão com correção na finalização da planilha
 )
 
 # --- Configuração do CORS ---
-# Permite que o frontend (rodando em um endereço diferente) se comunique com esta API
 origins = ["http://localhost:5500", "http://127.0.0.1:5500", "null", "*"]
 app.add_middleware(
     CORSMiddleware,
@@ -32,8 +32,6 @@ app.add_middleware(
 )
 
 # --- Modelos Pydantic ---
-# Definem a estrutura de dados esperada para as requisições da API
-
 class ApprovedItem(BaseModel):
     sku: int
     product_name: str
@@ -117,7 +115,6 @@ async def process_for_review(
                     final_content_data = None
                     final_score = 0
                     async for event_chunk in optimization_generator:
-                        # Repassa todos os eventos (log, update) para o frontend
                         yield event_chunk
                         
                         if "event: done" in event_chunk:
@@ -131,12 +128,10 @@ async def process_for_review(
                                 "meta_description": final_data.get("meta_description") or "Descrição não gerada."
                             }
 
-                    # --- CORREÇÃO: Remove o Quality Gate e envia sempre o melhor resultado ---
                     if final_content_data:
                         review_item = { "sku": sku, "product_name": nome_produto, **final_content_data }
                         yield await send_event("review_item", review_item)
                         
-                        # A mensagem de log reflete o resultado final, mas não descarta o item
                         if final_score >= 70:
                             yield await send_event("log", {"message": f"{log_prefix} Conteúdo OTIMIZADO (Score Final: {final_score}) gerado. Aguardando sua revisão.", "type": "success"})
                         else:
@@ -162,30 +157,54 @@ async def finalize_spreadsheet(
 ):
     """
     Recebe a planilha original e os dados aprovados/editados pelo usuário
-    para montar e retornar o arquivo Excel final.
+    para montar e retornar o arquivo Excel final, preservando todos os dados originais.
     """
     try:
         spreadsheet_bytes = await spreadsheet.read()
         approved_data = json.loads(approved_data_json)
         
-        df = pd.read_excel(io.BytesIO(spreadsheet_bytes))
+        # --- LÓGICA DE ATUALIZAÇÃO ROBUSTA ---
+        # Usamos pandas apenas para encontrar a localização (índice da linha) do SKU.
+        # Usamos openpyxl para carregar, modificar e salvar a planilha,
+        # o que preserva toda a formatação e dados não relacionados.
+
+        df_for_lookup = pd.read_excel(io.BytesIO(spreadsheet_bytes))
         
+        workbook = openpyxl.load_workbook(io.BytesIO(spreadsheet_bytes))
+        sheet = workbook.active
+
         COLUNA_ID_SKU = "_IDSKU (Não alterável)"
         COLUNA_V_HTML = "_BreveDescricaoProduto"
         COLUNA_AD_TITULO = "_TituloSite"
         COLUNA_AE_META_DESC = "_DescricaoMetaTag"
         
+        header = [cell.value for cell in sheet[1]]
+        try:
+            # Encontra o índice da coluna (base 1) para cada campo
+            sku_col_idx = header.index(COLUNA_ID_SKU) + 1
+            html_col_idx = header.index(COLUNA_V_HTML) + 1
+            title_col_idx = header.index(COLUNA_AD_TITULO) + 1
+            meta_col_idx = header.index(COLUNA_AE_META_DESC) + 1
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Erro Crítico: A coluna obrigatória '{e.args[0]}' não foi encontrada na primeira linha da planilha.")
+
         for item in approved_data:
             sku = item['sku']
-            index_linha = df.index[df[COLUNA_ID_SKU] == sku].tolist()
-            if index_linha:
-                idx = index_linha[0]
-                df.loc[idx, COLUNA_V_HTML] = item['html_content']
-                df.loc[idx, COLUNA_AD_TITULO] = item['seo_title']
-                df.loc[idx, COLUNA_AE_META_DESC] = item['meta_description']
+            # Usa o dataframe do pandas para encontrar o índice da linha de forma eficiente
+            index_linha_pd = df_for_lookup.index[df_for_lookup[COLUNA_ID_SKU] == sku].tolist()
+            
+            if index_linha_pd:
+                # Converte o índice do pandas (base 0) para a linha do Excel (base 1, mais a linha do cabeçalho)
+                excel_row_num = index_linha_pd[0] + 2
+                
+                # Atualiza as células diretamente na planilha usando openpyxl
+                sheet.cell(row=excel_row_num, column=html_col_idx).value = item['html_content']
+                sheet.cell(row=excel_row_num, column=title_col_idx).value = item['seo_title']
+                sheet.cell(row=excel_row_num, column=meta_col_idx).value = item['meta_description']
 
+        # Salva a planilha modificada em um buffer de memória
         output_buffer = io.BytesIO()
-        df.to_excel(output_buffer, index=False, engine='openpyxl')
+        workbook.save(output_buffer)
         output_buffer.seek(0)
         
         excel_base64 = base64.b64encode(output_buffer.read()).decode('utf-8')
