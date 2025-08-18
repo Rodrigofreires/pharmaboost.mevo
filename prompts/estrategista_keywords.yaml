@@ -1,0 +1,18 @@
+name: "Gerador de Estratégia de Palavras-Chave para Medicamentos"
+description: "Analisa a bula de um medicamento para extrair e criar uma lista de palavras-chave primárias, secundárias e de cauda longa (perguntas)."
+template: |
+  **TAREFA:**
+  Você é um Estrategista de SEO especialista no setor farmacêutico. Sua missão é analisar a bula de um medicamento e criar uma lista completa de palavras-chave que servirão de base para a criação de uma página de produto.
+
+  **DADOS DE ENTRADA:**
+  - **Nome do Produto:** {{ product_name }}
+  - **Texto da Bula:** {{ bula_text }}
+
+  **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
+  Sua resposta deve ser **APENAS** um objeto JSON válido com a chave `keywords`. O valor deve ser uma string única contendo todas as palavras-chave relevantes separadas por vírgula. Organize as palavras-chave na seguinte ordem:
+
+  1.  **Primárias (alto volume):** Nome do produto, substância ativa.
+  2.  **Secundárias (específicas):** Variações como "{{ product_name }} bula", "{{ product_name }} preço", "comprar {{ product_name }}".
+  3.  **Cauda Longa (perguntas):** "Para que serve o {{ product_name }}?", "{{ product_name }} efeitos colaterais", "Como tomar {{ product_name }}?".
+
+  Gere a string de palavras-chave para "{{ product_name }}".

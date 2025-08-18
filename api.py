@@ -18,7 +18,7 @@ from app import use_cases
 app = FastAPI(
     title="Gemini Application API",
     description="API para acessar casos de uso baseados no Gemini, com fluxo de revisão humana e otimização contínua.",
-    version="3.8.1" # Versão com correção na finalização da planilha
+    version="3.9.0" # Versão com integração de Palavras-chave
 )
 
 # --- Configuração do CORS ---
@@ -80,6 +80,7 @@ async def process_for_review(
 
             COLUNA_ID_SKU = "_IDSKU (Não alterável)"
             COLUNA_NOME_PRODUTO = "_NomeProduto (Obrigatório)"
+            COLUNA_PALAVRAS_CHAVE = "_PalavrasChave" # NOVA COLUNA
 
             for i, ((bula_filename, bula_bytes), sku) in enumerate(zip(bulas_data, sku_list)):
                 progress = f"({i+1}/{total_bulas})"
@@ -91,6 +92,13 @@ async def process_for_review(
                     continue
                 
                 nome_produto = linha_produto.iloc[0][COLUNA_NOME_PRODUTO]
+                # Extrai as palavras-chave da nova coluna. Usa um valor padrão se a coluna não existir ou estiver vazia.
+                palavras_chave = ""
+                if COLUNA_PALAVRAS_CHAVE in linha_produto.columns:
+                    palavras_chave = linha_produto.iloc[0][COLUNA_PALAVRAS_CHAVE]
+                if pd.isna(palavras_chave) or not palavras_chave:
+                    palavras_chave = "bula, para que serve, como usar" # Valor padrão
+
                 yield await send_event("log", {"message": f"{log_prefix} Processando '{nome_produto}'...", "type": "info"})
 
                 try:
@@ -100,17 +108,19 @@ async def process_for_review(
                     if not texto_da_bula.strip():
                         raise ValueError("Texto do PDF está vazio.")
 
+                    # Adiciona as palavras-chave ao dicionário de informações do produto
                     product_info_simulado = {
-                        "bula_text": texto_da_bula
+                        "bula_text": texto_da_bula,
+                        "palavras_chave": palavras_chave
                     }
 
                     yield await send_event("log", {"message": f"{log_prefix} Enviando para o Otimizador com IA...", "type": "info"})
                     
-                    optimization_generator = use_cases.run_seo_optimization_stream(
-                        product_type="medicine",
-                        product_name=nome_produto,
-                        product_info=product_info_simulado
-                    )
+                    optimization_generator = use_cases.run_seo_pipeline_stream(
+                                            product_type="medicine",
+                                            product_name=nome_produto,
+                                            product_info=product_info_simulado
+                                        )
 
                     final_content_data = None
                     final_score = 0

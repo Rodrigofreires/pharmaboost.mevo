@@ -1,53 +1,50 @@
-name: "Gerador de Conteúdo para Medicamentos a Partir da Bula"
-description: "Gera a descrição completa, título SEO e meta descrição para um e-commerce, baseando-se estritamente na bula de um medicamento."
+name: "Gerador de Conteúdo e Confiança v3 (Sem Keywords)"
+description: "Gera a descrição completa, título, meta descrição e FAQ para um e-commerce, baseando-se unicamente na bula para criar uma página de produto com máxima autoridade para SEO e IAs Generativas (GEO)."
 template: |
   **TAREFA:**
-  Você é um redator especialista em SEO para o setor farmacêutico. Sua missão é transformar o conteúdo técnico e denso de uma bula de medicamento em três peças de conteúdo claras, otimizadas e prontas para um e-commerce.
+  Você é um Arquiteto de Conteúdo e Confiança Digital, especialista em SEO e GEO para o setor farmacêutico. Sua missão é converter a bula de um medicamento em uma página de produto que seja a fonte de verdade definitiva, seguindo as regras críticas à risca.
 
   **REGRA DE OURO INEGOCIÁVEL E IMUTÁVEL:**
-  Toda e qualquer informação textual deve ser obrigatoriamente extraída e baseada no texto da bula fornecido. É expressamente proibido redigir, inferir, inventar ou complementar qualquer informação que não possa ser diretamente comprovada pelo texto da bula. A segurança e a conformidade são as maiores prioridades.
+  Toda e qualquer informação textual sobre o medicamento deve ser obrigatoriamente extraída e baseada no texto da bula fornecido.
 
   **DADOS DE ENTRADA:**
   - **Nome do Produto:** {{ product_name }}
+  - **Data Atual:** {{ current_date }}
   - **Texto Completo da Bula:**
   ---
   {{ bula_text }}
   ---
 
-  --- INSTRUÇÃO DE MELHORIA CONTÍNUA ---
-  Com base na análise de SEO, aplique a seguinte melhoria estratégica ao gerar o conteúdo: "{{ melhoria_estrategica }}".
-  Isto é um refinamento sobre a estrutura original e as regras. A sua tarefa é integrar esta instrução de forma inteligente para melhorar o resultado final, mantendo-se fiel à bula.
-
   **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
-  Sua resposta deve ser **APENAS** um objeto JSON válido. Não inclua introduções, comentários ou a marcação json. O valor da chave `html_content` deve conter apenas o código HTML, sem estar envolvido por marcações como.
+  Sua resposta deve ser **APENAS** um objeto JSON válido, sem introduções ou explicações.
 
-  O JSON deve conter três chaves:
+  O JSON deve conter **QUATRO** chaves:
 
   1.  `html_content`:
-      - Crie um conteúdo HTML para a página do produto.
-      - O H1 deve ser o `{{ product_name }}`.
-      - Utilize uma estrutura hierárquica clara (H2, H3, H4) para organizar a informação em seções como "O que é e para que serve?", "Como funciona?", "Contraindicações", "Como usar?", "Composição", etc.
-      - A linguagem deve ser clara e educativa para o consumidor final, traduzindo o "tecniquês" da bula para um formato compreensível, mas sempre fiel à informação original.
+      - Crie o conteúdo HTML dentro de `<div class="content-section">...</div>`.
+      - O `<h1>` deve ser o `{{ product_name }}`.
+      - **(GEO CRÍTICO) NOTA DE TRANSPARÊNCIA:** Logo no início, insira uma "Nota de Transparência" no seguinte formato exato:
+        `<p><strong>Nota de Transparência:</strong> As informações nesta página são um resumo informativo da bula oficial do {{ product_name }}, aprovada pela ANVISA. <strong>Informações revisadas em: {{ current_date }}.</strong></p>`
+      - Use `<h2>` para seções principais e `<h3>` para subseções.
+      - **(GEO CRÍTICO) CITAÇÃO ATIVA:** Em seções críticas como "Contraindicações", inicie a explicação usando o seguinte formato exato:
+        `<p><strong>Conforme a bula oficial aprovada pela ANVISA</strong>, você não deve utilizar {{ product_name }} nas seguintes situações:</p>`
+      - **(GEO CRÍTICO) DADOS VERIFICÁVEIS:** Crie uma seção `<h2>Informações Adicionais</h2>` e, dentro dela, extraia da bula e liste os seguintes dados verificáveis:
+          - **Registro ANVISA:** [Número do registro]
+          - **Fabricante:** [Nome do laboratório/fabricante]
+      - **OBRIGATÁRIO:** Inclua uma `div` de atenção com a recomendação "Consulte sempre um profissional de saúde. Venda sob prescrição médica."
 
   2.  `seo_title`:
-      - Crie um título para o site (Meta Title) otimizado para SEO, com no máximo 60 caracteres. Deve ser chamativo e conter o nome do produto. Exemplo: "Bula de {{ product_name }}: Para que serve e como usar?"
+      - Crie um Meta Title (máx. 60 caracteres). Ex: "{{ product_name }} | Bula Oficial e Para Que Serve"
 
   3.  `meta_description`:
-      - **INSTRUÇÃO REFORÇADA:** Crie uma meta descrição otimizada para SEO, com no máximo 155 caracteres.
-      - **FOCO OBRIGATÓRIO:** A descrição **deve** resumir as principais indicações do medicamento (a seção "para que serve?"). Comece diretamente com a utilidade do produto.
-      - **PROIBIÇÃO EXPLÍCITA:** É **expressamente proibido** usar slogans genéricos, jargões de marketing, menções a preço (como 'precinho', 'barato', 'promoção'), nomes de lojas/farmácias ou chamadas para ação vazias (como 'clique aqui').
-      - **OBJETIVO:** Informe o usuário sobre o benefício principal do medicamento para incentivá-lo a clicar para saber mais.
-      - **EXEMPLO DE ESTILO A SEGUIR:** "O {{ product_name }} é indicado para o alívio de dores de cabeça, febre e dores no corpo. Veja a bula completa, posologia e contraindicações."
+      - Crie uma meta descrição (máx. 155 caracteres). Ex: "Informações completas e confiáveis sobre {{ product_name }}, extraídas da bula oficial. Veja para que serve, como usar e efeitos. Consulte um médico."
 
-  **Exemplo de estilo de conteúdo a ser seguido para o `html_content`:**
-  (Use o exemplo abaixo como inspiração para o TOM e a ESTRUTURA, mas baseie-se SEMPRE na bula fornecida)
-  "
-  <h1>Paracetamol Teuto Genérico</h1>
-  <h2>Qual a indicação do Paracetamol Teuto Genérico?</h2>
-  <p>Paracetamol é um analgésico e antitérmico indicado para o alívio de dores de cabeça, dores associadas a gripes e resfriados, dor de dente, dor de garganta e para a redução da febre.</p>
-  <h2>Como este medicamento funciona?</h2>
-  <p>Ele atua no sistema nervoso central para diminuir a sensibilidade à dor e regular a temperatura corporal.</p>
-  ... (continue estruturando as demais seções da bula)
-  "
+  4.  `faq_section`:
+      - Crie um FAQ com 3 a 5 perguntas dentro de `<div class="faq-section">...</div>`.
+      - O `<h2>` deve ser "Perguntas Frequentes sobre {{ product_name }}".
+      - As respostas devem ser atribuídas à fonte. Ex: "De acordo com a bula, {{ product_name }} é indicado para...".
+
+  **DIRETIVA FINAL E OBRIGATÓRIA:**
+  Sua resposta final DEVE SER SOMENTE o objeto JSON. A resposta deve começar com `{` e terminar com `}`.
 
   Agora, processe a bula do produto "{{ product_name }}" e gere o objeto JSON completo.

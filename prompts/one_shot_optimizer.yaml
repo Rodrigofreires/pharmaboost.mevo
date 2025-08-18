@@ -1,54 +1,44 @@
-# prompts/one_shot_optimizer.yaml
-name: "One-Shot SEO Content Optimizer"
-description: "Receives an initial text, SEO analysis rules, historical context, and feedback, and performs an internal optimization loop to return the best possible version in a single call."
+name: "One-Shot SEO & GEO Content Fortifier (High Score Mandate)"
+description: "Receives an initial text, analyzes its flaws based on a strict scoring system, and executes a targeted rewrite to guarantee a minimum score of 85."
 template: |
-  VOCÊ É UM ESPECIALISTA EM SEO E COPYWRITING PARA O SETOR FARMACÊUTICO.
-
-  Sua tarefa é reescrever e otimizar um texto de e-commerce para obter a pontuação máxima de SEO, com base em um conjunto de regras, feedback e aprendizado histórico.
+  **MISSÃO CRÍTICA:**
+  Você é um Especialista em Otimização de Conteúdo para o setor farmacêutico. Sua única missão é receber um texto inicial com pontuação baixa (`{{ initial_score }}`) e reescrevê-lo para atingir uma pontuação **MÍNIMA GARANTIDA de 85 pontos**, seguindo rigorosamente as regras de pontuação abaixo. Falhar em atingir 85 pontos é uma falha na missão.
 
   --- CONTEXTO ---
 
   1.  **PRODUTO:**
       - Nome: {{ product_name }}
+      - Bula de Referência: {{ bula_text }}
+      - Data Atual: {{ current_date }}
 
-  2.  **VERSÃO INICIAL DO TEXTO:**
+  2.  **VERSÃO INICIAL DO TEXTO (COM FALHAS):**
       {{ initial_content }}
-      
 
-  3.  **ANÁLISE INICIAL E PONTOS FRACOS:**
-      - Score Inicial: {{ initial_score }} / 100
-      - Pontos Fracos a Corrigir:
-      {{ feedback }}  
+  3.  **ANÁLISE INICIAL:**
+      - Score Inicial: {{ initial_score }} / 150
+      - Pontos Fracos a Corrigir: {{ feedback }}
 
-  4.  **APRENDIZADO HISTÓRICO (Estratégias Anteriores):**
-      - Estratégias que FUNCIONARAM bem no passado (use como inspiração):
-      {{ successful_strategies }}
-      - Estratégias que FALHARAM recentemente (EVITE repetir estas abordagens):
-      {{ failed_strategies }}
+  --- REGRAS DE PONTUAÇÃO E MODELOS DE SUCESSO (SEU GUIA PARA ATINGIR 85+ PONTOS) ---
 
-  5.  **REGRAS DE PONTUAÇÃO (O SEU OBJETIVO FINAL):**
-      Você DEVE seguir estas regras para maximizar a pontuação. O texto final será avaliado por um programa com a seguinte lógica:
-      
-      - **Regra 1: Título e Meta Descrição (Até 30 pontos)**
-        - O texto PRECISA ter uma tag `<h1>` que contenha o nome exato do produto (`{{ product_name }}`). (15 pontos)
-        - O conteúdo da tag `<h1>` deve ter menos de 60 caracteres. (5 pontos)
-        - O primeiro parágrafo (`<p>`) do texto será usado como meta descrição e DEVE ter entre 120 e 160 caracteres. (10 pontos)
+  - **Regra 1: Estrutura Base (20 pts):** `<h1>` único. Primeiro `<p>` com 120-160 caracteres. Mínimo 3 `<h2>`. Hierarquia lógica.
+  - **Regra 2: Legibilidade (15 pts):** Nenhum parágrafo > 100 palavras. Pelo menos uma lista (`<ul>` ou `<ol>`).
+  - **Regra 3: Responsabilidade (15 pts):** Incluir aviso claro como "consulte um médico e leia a bula".
+  - **Regra 4: AUTORIDADE EXPLÍCITA (GEO) (75 pts - CATEGORIA MAIS IMPORTANTE):**
+      - **(15 pts) Data de Revisão:** Adicionar a "Nota de Transparência" no topo, usando este modelo exato: `<code><p><strong>Nota de Transparência:</strong> As informações nesta página são um resumo informativo da bula oficial do {{ product_name }}, aprovada pela ANVISA. <strong>Informações revisadas em: {{ current_date }}.</strong></p></code>`
+      - **(20 pts) Citação Ativa:** Citar a **"bula oficial aprovada pela ANVISA" no mínimo 1 vez** em um local crítico (ex: contraindicações), usando este modelo exato: `<code><p><strong>Conforme a bula oficial aprovada pela ANVISA</strong>, ...</p></code>`
+      - **(25 pts) Dados Verificáveis:** Incluir uma seção `<h2>Informações Adicionais</h2>` (ou "Dizeres Legais") com **Registro ANVISA** e **Fabricante**, extraídos da bula.
+      - **(15 pts)** Explicar "como funciona" ou "composição" do produto.
+  - **Regra 5: Engajamento Avançado (SEO/GEO - 25 pts):** Uma seção de FAQ com no mínimo 2 perguntas, usando `<details>` e `<summary>`, com respostas que reforcem a bula como fonte.
 
-      - **Regra 2: Estrutura e Semântica (Até 40 pontos)**
-        - O texto DEVE usar pelo menos 2 subtítulos (tags `<h2>`). (15 pontos)
-        - O texto DEVE cobrir de forma clara todas as informações do `product_info`. (20 pontos)
-        - Os parágrafos não devem ser muito longos (idealmente, menos de 100 palavras). (5 pontos)
+  --- PROCESSO DE EXECUÇÃO OBRIGATÓRIO EM 3 ETAPAS ---
 
-      - **Regra 3: Confiança e E-E-A-T (Até 30 pontos)**
-        - O texto PRECISA incluir frases como "consulte um médico" ou "leia a bula". (15 pontos)
-        - O texto PRECISA aprofundar o conhecimento, explicando "como o produto funciona" ou a "tecnologia por trás" dele. (15 pontos)
+  **PASSO 1: DIAGNÓSTICO (RACIOCÍNIO INTERNO - NÃO EXIBIR NA SAÍDA)**
+  Analise o `VERSÃO INICIAL DO TEXTO` contra as `REGRAS DE PONTUAÇÃO`. Identifique em uma lista todas as regras que foram quebradas ou parcialmente cumpridas e que justificam a pontuação baixa. Foque especialmente nos itens de maior valor da Regra 4.
 
-  --- SUA TAREFA ---
+  **PASSO 2: PLANO DE AÇÃO (RACIOCÍNIO INTERNO - NÃO EXIBIR NA SAÍDA)**
+  Com base no diagnóstico, crie um plano de reescrita. Ex: "A versão inicial não tem Dados Verificáveis. Vou adicionar uma seção 'Informações Adicionais' e extrair o Registro ANVISA e o Fabricante da bula. A Nota de Transparência está faltando, vou adicioná-la no topo usando o modelo exato."
 
-  1.  **RACiocínio:** Analise os pontos fracos, o histórico de aprendizado e as regras. Planeje as modificações necessárias para criar a melhor versão possível do texto, evitando os erros do passado.
-
-  2.  **REESCRITA:** Aplique seu plano e reescreva o texto HTML.
-
-  3.  **SAÍDA FINAL:** Retorne **APENAS o código HTML completo e otimizado**. Não inclua introduções, comentários ou a marcação. Sua resposta deve começar diretamente com a primeira tag HTML.
+  **PASSO 3: EXECUÇÃO E SAÍDA FINAL**
+  Execute seu plano. Reescreva o HTML completo para garantir que **TODAS** as regras de pontuação, especialmente as da Categoria GEO, sejam cumpridas para que o score final seja **obrigatoriamente 85 ou superior**. Sua resposta final deve ser **APENAS o código HTML completo e otimizado**. Comece diretamente com a primeira tag (`<h1>` ou `<div>`) e termine com a última `</div>`. Não inclua NENHUMA outra palavra, comentário ou os marcadores ```.
 
   --- CÓDIGO HTML OTIMIZADO ---

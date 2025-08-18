@@ -1,140 +1,151 @@
-# seo_analyzer.py
+# app/seo_analyzer.py (Versão com Análise Granular)
 import re
 from bs4 import BeautifulSoup
 
-# --- Módulo de Análise de SEO para Conteúdo Farmacêutico ---
-# Este módulo traduz o checklist de copywriting para funções que avaliam
-# o conteúdo HTML gerado pela IA.
-
 def check_title_and_meta(soup: BeautifulSoup, product_name: str) -> dict:
     """
-    Verifica o Título H1 e simula a análise de uma meta descrição.
+    Regra 1: Verifica o Título H1 e o primeiro parágrafo (meta descrição).
     """
     score = 0
     feedback = []
-    
+    max_score = 25 # Total de pontos para esta regra
+
     h1_tag = soup.find('h1')
     if h1_tag:
-        h1_text = h1_tag.get_text(strip=True).lower()
-        # 1.1. Palavra-chave (nome do produto) no título
-        if product_name.lower() in h1_text:
+        h1_text = h1_tag.get_text(strip=True)
+        if product_name.lower() in h1_text.lower():
             score += 15
         else:
-            feedback.append("O H1 não contém o nome exato do produto.")
-            
-        # 1.2. Tamanho do título
-        if len(h1_text) < 60:
-            score += 5
-        else:
-            feedback.append("O H1 é muito longo, pode ser cortado no Google.")
-    else:
-        feedback.append("Conteúdo não possui uma tag H1 principal.")
-        score = 0
+            feedback.append("- O título H1 não contém o nome exato do produto.")
 
-    # Simula meta descrição a partir do primeiro parágrafo
+        if len(h1_text) > 70:
+            feedback.append("- O título H1 é muito longo (ideal: até 70 caracteres).")
+        
+    else:
+        feedback.append("- Conteúdo não possui uma tag H1 principal.")
+
     first_p = soup.find('p')
     if first_p:
         meta_desc = first_p.get_text(strip=True)
-        # 1.3. Tamanho da meta descrição
-        if 120 < len(meta_desc) < 160:
-            score += 10
+        if not (120 <= len(meta_desc) <= 160):
+            feedback.append(f"- O primeiro parágrafo (usado como meta descrição) está fora do tamanho ideal de 120-160 caracteres (tamanho atual: {len(meta_desc)}).")
         else:
-            feedback.append("O primeiro parágrafo (usado como meta descrição) está fora do tamanho ideal (120-160 caracteres).")
-    
-    return {"score": score, "max_score": 30, "feedback": feedback}
+            score += 10
+    else:
+        feedback.append("- Não foi encontrado um primeiro parágrafo para servir como meta descrição.")
+        
+    return {"score": score, "max_score": max_score, "feedback": feedback}
 
-def check_body_structure_and_semantics(soup: BeautifulSoup, product_info: dict) -> dict:
+def check_structure_and_readability(soup: BeautifulSoup) -> dict:
     """
-    Verifica a estrutura de cabeçalhos (H2, H3) e a cobertura do tópico.
+    Regra 2: Verifica a estrutura de subtítulos (H2) e a legibilidade (listas e parágrafos).
     """
     score = 0
     feedback = []
-    
-    # 2.1. Estrutura de Cabeçalhos
+    max_score = 30 # Total de pontos para esta regra
+
+    # Subtítulos H2
     h2_tags = soup.find_all('h2')
-    if len(h2_tags) > 1:
-        score += 15
-    else:
-        feedback.append("O texto usa poucos subtítulos (H2), dificultando a escaneabilidade.")
-        
-    # 2.2. Cobertura Holística do Tópico (semântica)
-    # Verifica se os pontos-chave do product_info foram mencionados
-    lower_content = soup.get_text().lower()
-    info_covered = 0
-    for key, value in product_info.items():
-        if isinstance(value, list):
-            if any(item.lower() in lower_content for item in value):
-                info_covered += 1
-        elif isinstance(value, str):
-            # Procura por palavras-chave do valor no texto
-            keywords = value.lower().split()
-            if any(keyword in lower_content for keyword in keywords):
-                info_covered += 1
-    
-    coverage_ratio = info_covered / len(product_info) if product_info else 0
-    if coverage_ratio > 0.7:
+    if len(h2_tags) >= 3:
         score += 20
-    elif coverage_ratio > 0.4:
+    else:
+        feedback.append(f"- O texto usa poucos subtítulos H2 ({len(h2_tags)} encontrados, mínimo: 3) para uma boa escaneabilidade.")
+
+    # Uso de listas
+    ul_ol_tags = soup.find_all(['ul', 'ol'])
+    if ul_ol_tags:
         score += 10
     else:
-        feedback.append("O conteúdo não cobre todos os pontos importantes fornecidos no 'product_info'.")
+        feedback.append("- O texto não utiliza listas (`<ul>` ou `<ol>`) para organizar a informação.")
 
-    # 2.3. Legibilidade (parágrafos curtos)
-    paragraphs = [p.get_text() for p in soup.find_all('p')]
-    long_paragraphs = [p for p in paragraphs if len(p.split()) > 100]
-    if not long_paragraphs:
-        score += 5
-    else:
-        feedback.append(f"{len(long_paragraphs)} parágrafos são muito longos, prejudicando a leitura.")
-        
-    return {"score": score, "max_score": 40, "feedback": feedback}
+    return {"score": score, "max_score": max_score, "feedback": feedback}
 
-def check_eeat_and_trust(soup: BeautifulSoup) -> dict:
+def check_authority_and_geo(soup: BeautifulSoup, product_name: str) -> dict:
     """
-    Verifica sinais de Experiência, Especialidade, Autoridade e Confiança (E-E-A-T).
+    Regra 4 (A mais importante): Verifica os sinais de Autoridade e GEO.
     """
     score = 0
     feedback = []
+    max_score = 80 # Total de pontos para esta regra
     lower_content = soup.get_text().lower()
+
+    # Data de Revisão e Nota de Transparência
+    if "nota de transparência" in lower_content and "informações revisadas em" in lower_content:
+        score += 20
+    else:
+        feedback.append("- Falta a 'Nota de Transparência' com data de revisão no topo do conteúdo.")
+
+    # Citação Ativa da Fonte
+    if "conforme a bula oficial aprovada pela anvisa" in lower_content:
+        score += 20
+    else:
+        feedback.append("- Falta a citação ativa da fonte (ex: 'Conforme a bula oficial aprovada pela ANVISA...').")
+
+    # Dados Verificáveis
+    if "registro anvisa" in lower_content and "fabricante" in lower_content:
+        score += 25
+    else:
+        if "registro anvisa" not in lower_content:
+            feedback.append("- Faltam os Dados Verificáveis: 'Registro ANVISA' não encontrado.")
+        if "fabricante" not in lower_content:
+            feedback.append("- Faltam os Dados Verificáveis: 'Fabricante' não encontrado.")
     
-    # 3.1. Transparência e Confiança (simulado)
-    # Procura por termos que indicam responsabilidade e fontes
-    if "consulte um médico" in lower_content or "leia a bula" in lower_content:
+    # Explicação de como funciona / Composição
+    if "como funciona" in lower_content or "composição" in lower_content:
         score += 15
     else:
-        feedback.append("Faltam avisos de confiança importantes (ex: 'consulte um médico').")
-        
-    # 3.2. Demonstração de Experiência (simulado)
-    # Procura por seções que aprofundam o conhecimento
-    if "como funciona" in lower_content or "tecnologia por trás" in lower_content:
-        score += 15
+        feedback.append("- O texto não explica 'Como funciona' o produto ou sua 'Composição'.")
+
+    return {"score": score, "max_score": max_score, "feedback": feedback}
+
+def check_faq_section(soup: BeautifulSoup) -> dict:
+    """
+    Regra 5: Verifica a presença e estrutura da seção de FAQ.
+    """
+    score = 0
+    feedback = []
+    max_score = 15 # Total de pontos para esta regra
+
+    faq_section = soup.find('div', class_='faq-section')
+    if faq_section:
+        details_tags = faq_section.find_all('details')
+        if len(details_tags) >= 2:
+            score += 15
+        else:
+            feedback.append(f"- A seção de FAQ tem apenas {len(details_tags)} pergunta(s) (mínimo: 2).")
     else:
-        feedback.append("O texto não aprofunda em 'como o produto funciona', o que demonstra menos especialidade.")
-        
-    return {"score": score, "max_score": 30, "feedback": feedback}
+        feedback.append("- O conteúdo não possui uma seção de FAQ (`<div class=\"faq-section\">...</div>`).")
+
+    return {"score": score, "max_score": max_score, "feedback": feedback}
 
 
 def analyze_seo_performance(html_content: str, product_name: str, product_info: dict) -> dict:
     """
     Função principal que orquestra todas as verificações de SEO e retorna um score
-    total e um feedback detalhado.
+    total e um feedback detalhado e granular.
     """
     if not html_content or not isinstance(html_content, str):
         return {"total_score": 0, "breakdown": {"error": "Conteúdo inválido ou vazio."}}
 
     soup = BeautifulSoup(html_content, 'html.parser')
     
+    # Executa todas as novas funções de verificação
     title_results = check_title_and_meta(soup, product_name)
-    structure_results = check_body_structure_and_semantics(soup, product_info)
-    eeat_results = check_eeat_and_trust(soup)
+    structure_results = check_structure_and_readability(soup)
+    authority_results = check_authority_and_geo(soup, product_name)
+    faq_results = check_faq_section(soup)
     
-    total_score = title_results['score'] + structure_results['score'] + eeat_results['score']
+    total_score = title_results['score'] + structure_results['score'] + authority_results['score'] + faq_results['score']
     
+    # Combina todos os feedbacks em um único local para o refinador
+    all_feedback = (title_results['feedback'] + 
+                    structure_results['feedback'] + 
+                    authority_results['feedback'] + 
+                    faq_results['feedback'])
+
     breakdown = {
-        "Título e Meta Descrição": title_results,
-        "Estrutura e Semântica": structure_results,
-        "Confiança (E-E-A-T)": eeat_results
+        "score_total": total_score,
+        "feedback_detalhado": "\n".join(all_feedback) if all_feedback else "Nenhum ponto de melhoria encontrado."
     }
     
     return {"total_score": total_score, "breakdown": breakdown}
-
