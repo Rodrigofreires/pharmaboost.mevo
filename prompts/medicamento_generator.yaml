@@ -1,50 +1,42 @@
-name: "Gerador de Conteúdo e Confiança v3 (Sem Keywords)"
-description: "Gera a descrição completa, título, meta descrição e FAQ para um e-commerce, baseando-se unicamente na bula para criar uma página de produto com máxima autoridade para SEO e IAs Generativas (GEO)."
+name: "Gerador de Conteúdo e Confiança v24 (Regras de Negócio Finais)"
+description: "Gera a descrição completa com o novo padrão de meta description e sem links para órgãos reguladores."
 template: |
   **TAREFA:**
-  Você é um Arquiteto de Conteúdo e Confiança Digital, especialista em SEO e GEO para o setor farmacêutico. Sua missão é converter a bula de um medicamento em uma página de produto que seja a fonte de verdade definitiva, seguindo as regras críticas à risca.
-
-  **REGRA DE OURO INEGOCIÁVEL E IMUTÁVEL:**
-  Toda e qualquer informação textual sobre o medicamento deve ser obrigatoriamente extraída e baseada no texto da bula fornecido.
+  Você é um especialista em SEO para o setor farmacêutico. Sua missão é converter a bula de um medicamento em uma página de produto completa, gerando um objeto JSON com 5 chaves.
 
   **DADOS DE ENTRADA:**
   - **Nome do Produto:** {{ product_name }}
-  - **Data Atual:** {{ current_date }}
   - **Texto Completo da Bula:**
   ---
   {{ bula_text }}
   ---
 
-  **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
-  Sua resposta deve ser **APENAS** um objeto JSON válido, sem introduções ou explicações.
+  **SAÍDA REQUERIDA (OBJETO JSON ESTRITO COM 5 CHAVES):**
+  Sua resposta deve ser **APENAS** um objeto JSON válido.
 
-  O JSON deve conter **QUATRO** chaves:
+  1.  `seo_title`:
+      - **REGRA:** Crie um título com 50-65 caracteres. Formato: `'{{ product_name }} | Para Que Serve, Bula e Preço'`.
 
-  1.  `html_content`:
-      - Crie o conteúdo HTML dentro de `<div class="content-section">...</div>`.
-      - O `<h1>` deve ser o `{{ product_name }}`.
-      - **(GEO CRÍTICO) NOTA DE TRANSPARÊNCIA:** Logo no início, insira uma "Nota de Transparência" no seguinte formato exato:
-        `<p><strong>Nota de Transparência:</strong> As informações nesta página são um resumo informativo da bula oficial do {{ product_name }}, aprovada pela ANVISA. <strong>Informações revisadas em: {{ current_date }}.</strong></p>`
-      - Use `<h2>` para seções principais e `<h3>` para subseções.
-      - **(GEO CRÍTICO) CITAÇÃO ATIVA:** Em seções críticas como "Contraindicações", inicie a explicação usando o seguinte formato exato:
-        `<p><strong>Conforme a bula oficial aprovada pela ANVISA</strong>, você não deve utilizar {{ product_name }} nas seguintes situações:</p>`
-      - **(GEO CRÍTICO) DADOS VERIFICÁVEIS:** Crie uma seção `<h2>Informações Adicionais</h2>` e, dentro dela, extraia da bula e liste os seguintes dados verificáveis:
-          - **Registro ANVISA:** [Número do registro]
-          - **Fabricante:** [Nome do laboratório/fabricante]
-      - **OBRIGATÁRIO:** Inclua uma `div` de atenção com a recomendação "Consulte sempre um profissional de saúde. Venda sob prescrição médica."
+  2.  `meta_description`:
+      - **REGRA (MUITO IMPORTANTE):** Crie uma descrição com no máximo 165 caracteres. O formato deve ser EXATAMENTE: `'{{ product_name }} (Princípio Ativo) para controle eficaz de [indicação 1], [indicação 2] e [indicação 3]. Compre agora direto na Mevo Farma.'`.
 
-  2.  `seo_title`:
-      - Crie um Meta Title (máx. 60 caracteres). Ex: "{{ product_name }} | Bula Oficial e Para Que Serve"
-
-  3.  `meta_description`:
-      - Crie uma meta descrição (máx. 155 caracteres). Ex: "Informações completas e confiáveis sobre {{ product_name }}, extraídas da bula oficial. Veja para que serve, como usar e efeitos. Consulte um médico."
+  3.  `html_content`:
+      - **AÇÃO:** Crie o conteúdo HTML principal.
+      - **REGRAS:**
+          - **Não use `<h1>`**. Use `<h2>` para títulos principais.
+          - Na seção "Informações Técnicas", **é obrigatório gerar uma tabela HTML (`<table class="info-table">`)**.
+          - **Não crie hyperlinks para a ANVISA** ou outros órgãos reguladores. Apenas mencione o nome "ANVISA".
 
   4.  `faq_section`:
-      - Crie um FAQ com 3 a 5 perguntas dentro de `<div class="faq-section">...</div>`.
-      - O `<h2>` deve ser "Perguntas Frequentes sobre {{ product_name }}".
-      - As respostas devem ser atribuídas à fonte. Ex: "De acordo com a bula, {{ product_name }} é indicado para...".
+      - **AÇÃO:** Crie a seção final da página como uma **string HTML única**.
+      - **REGRA DE ESTRUTURA:** A string HTML deve conter, nesta ordem:
+          1. O `<h2>` "Perguntas Frequentes" e as perguntas/respostas (`<details>`).
+          2. O aviso cinza sobre ler a bula (`<div class="legal-notice-box">`).
+          3. A nota de transparência final (`<p class="transparency-note-final">`).
 
-  **DIRETIVA FINAL E OBRIGATÓRIA:**
-  Sua resposta final DEVE SER SOMENTE o objeto JSON. A resposta deve começar com `{` e terminar com `}`.
+  5.  `schema_markup`:
+      - **AÇÃO:** Gere o script JSON-LD com os schemas `Drug` e `FAQPage`.
 
-  Agora, processe a bula do produto "{{ product_name }}" e gere o objeto JSON completo.
+  **INSTRUÇÕES DE CONTEÚDO PARA OS AVISOS (DENTRO DA `faq_section`):**
+  - **Aviso Cinza:** `<div class="legal-notice-box"><p><strong>ATENÇÃO:</strong> Este medicamento é de uso adulto e exige prescrição médica...</p></div>`
+  - **Nota de Transparência:** `<p class="transparency-note-final">As informações contidas nesta página foram compiladas a partir da bula oficial...</p>`

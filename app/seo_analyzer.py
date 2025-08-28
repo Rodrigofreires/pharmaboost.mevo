@@ -1,151 +1,133 @@
-# app/seo_analyzer.py (Versão com Análise Granular)
+# app/seo_analyzer.py (Atualizado para refletir as regras do Agente Auditor de IA)
 import re
 from bs4 import BeautifulSoup
+from typing import Dict, Any
 
-def check_title_and_meta(soup: BeautifulSoup, product_name: str) -> dict:
+def check_headings_structure(soup: BeautifulSoup) -> Dict[str, Any]:
     """
-    Regra 1: Verifica o Título H1 e o primeiro parágrafo (meta descrição).
-    """
-    score = 0
-    feedback = []
-    max_score = 25 # Total de pontos para esta regra
-
-    h1_tag = soup.find('h1')
-    if h1_tag:
-        h1_text = h1_tag.get_text(strip=True)
-        if product_name.lower() in h1_text.lower():
-            score += 15
-        else:
-            feedback.append("- O título H1 não contém o nome exato do produto.")
-
-        if len(h1_text) > 70:
-            feedback.append("- O título H1 é muito longo (ideal: até 70 caracteres).")
-        
-    else:
-        feedback.append("- Conteúdo não possui uma tag H1 principal.")
-
-    first_p = soup.find('p')
-    if first_p:
-        meta_desc = first_p.get_text(strip=True)
-        if not (120 <= len(meta_desc) <= 160):
-            feedback.append(f"- O primeiro parágrafo (usado como meta descrição) está fora do tamanho ideal de 120-160 caracteres (tamanho atual: {len(meta_desc)}).")
-        else:
-            score += 10
-    else:
-        feedback.append("- Não foi encontrado um primeiro parágrafo para servir como meta descrição.")
-        
-    return {"score": score, "max_score": max_score, "feedback": feedback}
-
-def check_structure_and_readability(soup: BeautifulSoup) -> dict:
-    """
-    Regra 2: Verifica a estrutura de subtítulos (H2) e a legibilidade (listas e parágrafos).
+    Verifica a hierarquia de títulos.
+    REGRA: É proibido usar <h1>. A estrutura deve começar com <h2>.
     """
     score = 0
     feedback = []
-    max_score = 30 # Total de pontos para esta regra
+    max_score = 10
 
-    # Subtítulos H2
-    h2_tags = soup.find_all('h2')
-    if len(h2_tags) >= 3:
-        score += 20
+    if soup.find('h1'):
+        feedback.append("Hierarquia de headings incorreta: A tag <h1> é proibida no conteúdo.")
+    elif not soup.find_all('h2'):
+        feedback.append("Hierarquia de headings incorreta: A estrutura deve conter pelo menos uma tag <h2>.")
     else:
-        feedback.append(f"- O texto usa poucos subtítulos H2 ({len(h2_tags)} encontrados, mínimo: 3) para uma boa escaneabilidade.")
-
-    # Uso de listas
-    ul_ol_tags = soup.find_all(['ul', 'ol'])
-    if ul_ol_tags:
-        score += 10
-    else:
-        feedback.append("- O texto não utiliza listas (`<ul>` ou `<ol>`) para organizar a informação.")
+        score = 10
+        feedback.append("Hierarquia de headings (começando com H2) está correta.")
 
     return {"score": score, "max_score": max_score, "feedback": feedback}
 
-def check_authority_and_geo(soup: BeautifulSoup, product_name: str) -> dict:
+def check_readability(soup: BeautifulSoup) -> Dict[str, Any]:
     """
-    Regra 4 (A mais importante): Verifica os sinais de Autoridade e GEO.
+    Verifica a legibilidade através do uso de listas.
     """
     score = 0
     feedback = []
-    max_score = 80 # Total de pontos para esta regra
-    lower_content = soup.get_text().lower()
+    max_score = 10
 
-    # Data de Revisão e Nota de Transparência
-    if "nota de transparência" in lower_content and "informações revisadas em" in lower_content:
-        score += 20
+    if soup.find_all(['ul', 'ol']):
+        score = 10
+        feedback.append("Boa legibilidade, utilizando parágrafos curtos e listas (`<ul>`).")
     else:
-        feedback.append("- Falta a 'Nota de Transparência' com data de revisão no topo do conteúdo.")
-
-    # Citação Ativa da Fonte
-    if "conforme a bula oficial aprovada pela anvisa" in lower_content:
-        score += 20
-    else:
-        feedback.append("- Falta a citação ativa da fonte (ex: 'Conforme a bula oficial aprovada pela ANVISA...').")
-
-    # Dados Verificáveis
-    if "registro anvisa" in lower_content and "fabricante" in lower_content:
-        score += 25
-    else:
-        if "registro anvisa" not in lower_content:
-            feedback.append("- Faltam os Dados Verificáveis: 'Registro ANVISA' não encontrado.")
-        if "fabricante" not in lower_content:
-            feedback.append("- Faltam os Dados Verificáveis: 'Fabricante' não encontrado.")
-    
-    # Explicação de como funciona / Composição
-    if "como funciona" in lower_content or "composição" in lower_content:
-        score += 15
-    else:
-        feedback.append("- O texto não explica 'Como funciona' o produto ou sua 'Composição'.")
+        feedback.append("O texto não utiliza listas (`<ul>` ou `<ol>`) para organizar a informação.")
 
     return {"score": score, "max_score": max_score, "feedback": feedback}
 
-def check_faq_section(soup: BeautifulSoup) -> dict:
+def check_faq_structure(soup: BeautifulSoup) -> Dict[str, Any]:
     """
-    Regra 5: Verifica a presença e estrutura da seção de FAQ.
+    Verifica a presença e estrutura da seção de FAQ.
     """
     score = 0
     feedback = []
-    max_score = 15 # Total de pontos para esta regra
+    max_score = 10
 
     faq_section = soup.find('div', class_='faq-section')
-    if faq_section:
-        details_tags = faq_section.find_all('details')
-        if len(details_tags) >= 2:
-            score += 15
-        else:
-            feedback.append(f"- A seção de FAQ tem apenas {len(details_tags)} pergunta(s) (mínimo: 2).")
+    if faq_section and faq_section.find_all('details') and faq_section.find_all('summary'):
+        score = 10
+        feedback.append("A seção de FAQ utiliza `<details>` e `<summary>` conforme recomendado.")
     else:
-        feedback.append("- O conteúdo não possui uma seção de FAQ (`<div class=\"faq-section\">...</div>`).")
+        feedback.append("A seção de FAQ está ausente ou não utiliza as tags `<details>` e `<summary>`.")
 
     return {"score": score, "max_score": max_score, "feedback": feedback}
 
-
-def analyze_seo_performance(html_content: str, product_name: str, product_info: dict) -> dict:
+def check_authority_signals(soup: BeautifulSoup) -> Dict[str, Any]:
     """
-    Função principal que orquestra todas as verificações de SEO e retorna um score
-    total e um feedback detalhado e granular.
+    Verifica os sinais de Autoridade e Confiança (GEO, Dados, Links).
+    """
+    geo_score, verifiable_data_score, external_links_score = 0, 0, 0
+    feedback = []
+    lower_content = soup.get_text().lower()
+
+    # GEO Signals
+    if "nota de transparência" in lower_content and "anvisa" in lower_content:
+        geo_score = 10
+    else:
+        feedback.append("Sinais de autoridade (Nota de Transparência e Citação ANVISA) ausentes.")
+
+    # Verifiable Data
+    if "registro anvisa" in lower_content and "fabricante" in lower_content:
+        verifiable_data_score = 10
+    else:
+        feedback.append("Dados verificáveis (Registro ANVISA e Fabricante) não incluídos.")
+
+    # External Links
+    if soup.find('a', href=re.compile(r"gov\.br")):
+        external_links_score = 10
+    else:
+        feedback.append("Link externo para fonte de autoridade (gov.br) não encontrado.")
+
+    return {
+        "geo_signals": {"score": geo_score, "max_score": 10},
+        "verifiable_data": {"score": verifiable_data_score, "max_score": 10},
+        "external_links": {"score": external_links_score, "max_score": 10},
+        "feedback": feedback
+    }
+
+def analyze_seo_performance_from_html(html_content: str) -> Dict[str, Any]:
+    """
+    Função principal que orquestra todas as verificações de SEO baseadas no HTML.
+    Esta é uma implementação em Python para fins de teste e validação,
+    o sistema principal usa o Agente de IA.
     """
     if not html_content or not isinstance(html_content, str):
         return {"total_score": 0, "breakdown": {"error": "Conteúdo inválido ou vazio."}}
 
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # Executa todas as novas funções de verificação
-    title_results = check_title_and_meta(soup, product_name)
-    structure_results = check_structure_and_readability(soup)
-    authority_results = check_authority_and_geo(soup, product_name)
-    faq_results = check_faq_section(soup)
+    # Executa todas as funções de verificação
+    headings_results = check_headings_structure(soup)
+    readability_results = check_readability(soup)
+    faq_results = check_faq_structure(soup)
+    authority_results = check_authority_signals(soup)
     
-    total_score = title_results['score'] + structure_results['score'] + authority_results['score'] + faq_results['score']
-    
-    # Combina todos os feedbacks em um único local para o refinador
-    all_feedback = (title_results['feedback'] + 
-                    structure_results['feedback'] + 
-                    authority_results['feedback'] + 
-                    faq_results['feedback'])
-
+    # Consolida os resultados em um breakdown similar ao do Agente de IA
     breakdown = {
-        "score_total": total_score,
-        "feedback_detalhado": "\n".join(all_feedback) if all_feedback else "Nenhum ponto de melhoria encontrado."
+        "headings": headings_results,
+        "readability": readability_results,
+        "faq_structure": faq_results,
+        "geo_signals": authority_results["geo_signals"],
+        "verifiable_data": authority_results["verifiable_data"],
+        "external_links": authority_results["external_links"],
     }
-    
-    return {"total_score": total_score, "breakdown": breakdown}
+
+    # Calcula o score total
+    total_score = sum(result.get("score", 0) for result in breakdown.values())
+
+    # Combina todos os feedbacks
+    all_feedback = (
+        headings_results['feedback'] + 
+        readability_results['feedback'] + 
+        faq_results['feedback'] + 
+        authority_results['feedback']
+    )
+
+    return {
+        "total_score": total_score,
+        "breakdown": breakdown,
+        "feedback_geral": all_feedback
+    }

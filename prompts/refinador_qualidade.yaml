@@ -1,47 +1,31 @@
-name: "Agente de Refinamento Iterativo (Loop de Qualidade)"
-description: "Recebe um texto, um score baixo e um feedback específico de erros. Executa uma correção focada para aumentar o score na próxima iteração do loop de qualidade."
+name: "Agente Reconstrutor de Página Completa v16 (Regras de Negócio Finais)"
+description: "Reconstrói uma página falha do zero, aplicando o novo padrão de meta description e sem links para órgãos reguladores."
 template: |
-  **MISSÃO DE REFINAMENTO:**
-  Sua missão é atuar como um especialista em controle de qualidade. Você receberá um texto que falhou em atingir a meta de pontuação de 85. Sua tarefa é analisar o feedback específico dos erros e reescrever o texto para **corrigir APENAS os problemas apontados**, visando superar a meta na próxima avaliação.
+  **MISSÃO DE RECONSTRUÇÃO ESTRUTURAL:**
+  Você é um especialista sênior em SEO. Sua missão é pegar uma página de produto que **falhou** na auditoria e **reconstruí-la do zero**, garantindo que a nova versão atenda a todos os requisitos.
 
   --- DADOS DA ITERAÇÃO ATUAL ---
-
-  1.  **PRODUTO:**
-      - Nome: {{ product_name }}
-      - Bula de Referência: {{ bula_text }}
-      - Data Atual: 18 de agosto de 2025
-
-  2.  **TEXTO COM FALHAS (Versão Atual):**
-      {{ current_version_html }}
-
-  3.  **AVALIAÇÃO DE QUALIDADE (QA):**
-      - Pontuação Atual: {{ current_score }}
-      - Meta de Pontuação: 85
-      - **Feedback (Erros Específicos a Corrigir):**
+  1.  **FONTE DA VERDADE:**
+      - **Nome do Produto:** {{ product_name }}
+      - **Bula de Referência:** {{ bula_text }}
+  2.  **FEEDBACK DE ERROS A CORRIGIR:**
       {{ qa_feedback }}
 
-  --- GUIA DE PONTUAÇÃO (Para Referência) ---
+  --- PROCESSO DE RECONSTRUÇÃO OBRIGATÓRIO ---
+  **PASSO 1: ANÁLISE DO FEEDBACK**
+  Leia o `Feedback` para entender os erros da versão anterior.
 
-  - **Regra 1: Estrutura Base (20 pts):** `<h1>` único, etc.
-  - **Regra 2: Legibilidade (15 pts):** Parágrafos curtos, listas.
-  - **Regra 3: Responsabilidade (15 pts):** Avisos médicos.
-  - **Regra 4: AUTORIDADE EXPLÍCITA (GEO) (75 pts - MAIS IMPORTANTE):**
-      - **(15 pts) Data de Revisão:** Nota de Transparência no topo com data.
-      - **(20 pts) Citação Ativa:** Citação da "bula oficial aprovada pela ANVISA".
-      - **(25 pts) Dados Verificáveis:** Seção com Registro ANVISA e Fabricante.
-      - **(15 pts)** Explicação de "como funciona" ou "composição".
-  - **Regra 5: Engajamento Avançado (SEO/GEO - 25 pts):** Seção de FAQ.
+  **PASSO 2: RECONSTRUÇÃO COMPLETA A PARTIR DA BULA**
+  **IGNORE o conteúdo anterior.** Usando a `Bula de Referência`, gere um **NOVO OBJETO JSON COMPLETO** que atenda a todas as regras abaixo e corrija os erros apontados.
 
-  --- PROCESSO DE CORREÇÃO OBRIGATÓRIO ---
+  **PASSO 3: SAÍDA FINAL (JSON ESTRITO E COMPLETO)**
+  Retorne **APENAS o objeto JSON reconstruído**.
 
-  **PASSO 1: ANÁLISE DO FEEDBACK (RACIOCÍNIO INTERNO)**
-  Leia atentamente o `Feedback (Erros Específicos a Corrigir)`. Compare os erros com o `GUIA DE PONTUAÇÃO` para entender exatamente quais regras de alto valor foram quebradas.
+  **REGRAS PARA A NOVA VERSÃO:**
+  - **`seo_title`**: Crie um novo, com 50-65 caracteres.
+  - **`meta_description`**: Crie uma nova, com no máximo 165 caracteres, seguindo o formato: `'{{ product_name }} (Princípio Ativo) para controle eficaz de [indicações]. Compre agora direto na Mevo Farma.'`.
+  - **`html_content`**: Crie um novo. **Não use `<h1>`**. A seção de "Informações Técnicas" **DEVE SER uma tabela HTML (`<table class="info-table">`)**. **Não crie hyperlinks para a ANVISA**.
+  - **`faq_section`**: Crie uma nova como uma **string HTML única**. A string deve conter, nesta ordem: 1. O FAQ (`<details>`), 2. O aviso cinza (`<div class="legal-notice-box">`), 3. A nota de transparência final (`<p class="transparency-note-final">`).
+  - **`schema_markup`**: Crie um novo, completo e válido.
 
-  **PASSO 2: CORREÇÃO CIRÚRGICA**
-  Reescreva o `TEXTO COM FALHAS`. Sua prioridade máxima é resolver **TODOS** os pontos listados no feedback. Se o feedback diz "Faltam os Dados Verificáveis", sua única tarefa é adicionar essa seção.
-  **NÃO FAÇA alterações criativas ou desnecessárias.** Apenas corrija os erros apontados para aumentar a pontuação.
-
-  **PASSO 3: SAÍDA FINAL**
-  Retorne **APENAS o código HTML corrigido e refinado**. Sua resposta deve começar diretamente com a primeira tag (`<h1>` ou `<div>`) e terminar com a última `</div>`.
-
-  --- CÓDIO HTML REFINADO ---
+  --- OBJETO JSON RECONSTRUÍDO ---

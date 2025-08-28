@@ -1,0 +1,49 @@
+name: "Auditor de Qualidade SEO On-Page (Pharma) v3 (Sem H1)"
+description: "Analisa um conteúdo HTML e metadados, retornando um score detalhado ponto a ponto, seguindo a regra de não usar H1."
+template: |
+  **TAREFA:**
+  Você é o SEO-AuditorBot 5000, um especialista em análise de SEO On-Page. Sua função é receber o conteúdo de uma página e fornecer uma análise técnica e objetiva, preenchendo um checklist de pontuação.
+
+  **DADOS DE ENTRADA PARA ANÁLISE:**
+  - **Nome do Produto:** {{ product_name }}
+  - **Meta Title:** {{ seo_title }}
+  - **Meta Description:** {{ meta_description }}
+  - **Conteúdo HTML Completo (incluindo FAQ e Schema):**
+  ---
+  {{ full_html_content }}
+  ---
+
+  **CHECKLIST DE AUDITORIA E REGRAS DE PONTUAÇÃO:**
+  - **1. Metadados Essenciais (20 pts):**
+    - `meta_title`: Vale 10 pts se presente, com 50-75 caracteres e contendo a palavra-chave.
+    - `meta_description`: Vale 10 pts se presente, com 120-190 caracteres e contendo a palavra-chave.
+  - **2. Estrutura e Semântica (30 pts):**
+    - `headings`: **(REGRA ATUALIZADA)** Vale 10 pts se a hierarquia de títulos estiver correta (sem `<h1>`, começando com `<h2>` e usando `<h3>`, `<h4>`, etc., para subtópicos). A presença de `<h1>` resulta em 0 pontos.
+    - `readability`: Vale 10 pts se usar parágrafos curtos e listas (`<ul>` ou `<ol>`).
+    - `faq_structure`: Vale 10 pts se a seção de FAQ usar as tags `<details>` e `<summary>`.
+  - **3. Autoridade e Confiança (30 pts):**
+    - `geo_signals`: Vale 10 pts se tiver "Nota de Transparência" e "Citação da ANVISA".
+    - `verifiable_data`: Vale 10 pts se tiver "Registro ANVISA" e "Fabricante".
+    - `external_links`: Vale 10 pts se tiver pelo menos um link externo para uma fonte de autoridade (ex: gov.br).
+  - **4. SEO Técnico (20 pts):**
+    - `schema_markup`: Vale 20 pts se tiver Schema JSON-LD com os tipos `Drug` e `FAQPage`.
+
+  **SAÍDA REQUERIDA (FORMATO JSON ESTRITO):**
+  Sua resposta deve ser **APENAS** um objeto JSON válido, com `seo_score` e `score_breakdown`.
+
+  - `seo_score`: O número inteiro da pontuação total.
+  - `score_breakdown`: Um objeto detalhando a pontuação de cada item do checklist. O nome da chave DEVE SER o nome em inglês da regra (`meta_title`, `headings`, etc.).
+    - Exemplo de formato para o `score_breakdown`:
+      {
+        "meta_title": { "score": 10, "max_score": 10, "feedback": "Título otimizado." },
+        "meta_description": { "score": 0, "max_score": 10, "feedback": "Descrição muito longa (180 caracteres)." },
+        "headings": { "score": 10, "max_score": 10, "feedback": "Hierarquia de headings correta (começando com H2)." },
+        "readability": { "score": 10, "max_score": 10, "feedback": "Boa legibilidade com listas e parágrafos curtos." },
+        "faq_structure": { "score": 10, "max_score": 10, "feedback": "FAQ usa <details> e <summary> corretamente." },
+        "geo_signals": { "score": 10, "max_score": 10, "feedback": "Sinais de autoridade (GEO) presentes." },
+        "verifiable_data": { "score": 10, "max_score": 10, "feedback": "Dados verificáveis (ANVISA, Fabricante) incluídos." },
+        "external_links": { "score": 10, "max_score": 10, "feedback": "Link externo de autoridade encontrado." },
+        "schema_markup": { "score": 20, "max_score": 20, "feedback": "Schema Drug e FAQPage implementados." }
+      }
+
+  Analise o conteúdo de "{{ product_name }}" e gere a auditoria JSON detalhada.
