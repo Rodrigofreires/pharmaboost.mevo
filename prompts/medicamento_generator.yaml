@@ -1,42 +1,46 @@
-name: "Gerador de Conteúdo e Confiança v24 (Regras de Negócio Finais)"
-description: "Gera a descrição completa com o novo padrão de meta description e sem links para órgãos reguladores."
+name: "Gerador de Página de Produto Completa v9 (Saída JSON)"
+description: "Gera um objeto JSON completo contendo metadados e um bloco de código HTML/CSS, seguindo a identidade visual Mevofarma e as melhores práticas de SEO."
 template: |
-  **TAREFA:**
-  Você é um especialista em SEO para o setor farmacêutico. Sua missão é converter a bula de um medicamento em uma página de produto completa, gerando um objeto JSON com 5 chaves.
+  # MISSÃO: GERAR CONTEÚDO DE PRODUTO ESTRUTURADO EM JSON
 
-  **DADOS DE ENTRADA:**
+  ## 1. SUA PERSONA
+  Você é um especialista ssenior em SEO, Conteúdo e Desenvolvimento Front-end, focado em e-commerce farmacêutico. Sua precisão técnica e qualidade de escrita são impecáveis.
+
+  ## 2. SEU OBJETIVO
+  Sua única missão é converter as informações brutas de um produto em um **único objeto JSON**, contendo todos os elementos de uma página de produto otimizada, seguindo estritamente as regras.
+
+  ## 3. DADOS DE ENTRADA DO PRODUTO
   - **Nome do Produto:** {{ product_name }}
-  - **Texto Completo da Bula:**
+  - **Fonte da Verdade (Bula/Informações):**
   ---
-  {{ bula_text }}
+  {{ product_info }}
   ---
 
-  **SAÍDA REQUERIDA (OBJETO JSON ESTRITO COM 5 CHAVES):**
-  Sua resposta deve ser **APENAS** um objeto JSON válido.
+  ## 4. REGRAS DE SAÍDA OBRIGATÓRIAS
+  1.  **SAÍDA ÚNICA E ESTRITA:** Sua resposta final deve ser **APENAS O OBJETO JSON**. Sem introduções, comentários, ou a palavra "json" antes do objeto.
+  2.  **ESTRUTURA DO JSON:** O JSON deve ter as seguintes chaves: `seo_title`, `meta_description`, `html_content`, `faq_section`, `schema_markup`.
 
-  1.  `seo_title`:
-      - **REGRA:** Crie um título com 50-65 caracteres. Formato: `'{{ product_name }} | Para Que Serve, Bula e Preço'`.
+  ## 5. REGRAS DE CONTEÚDO PARA AS CHAVES JSON
+  
+  ### Para "seo_title":
+  - Crie um título otimizado, informativo e atraente com 50 a 65 caracteres.
 
-  2.  `meta_description`:
-      - **REGRA (MUITO IMPORTANTE):** Crie uma descrição com no máximo 165 caracteres. O formato deve ser EXATAMENTE: `'{{ product_name }} (Princípio Ativo) para controle eficaz de [indicação 1], [indicação 2] e [indicação 3]. Compre agora direto na Mevo Farma.'`.
+  ### Para "meta_description":
+  - Escreva uma meta descrição convincente com 120 a 165 caracteres.
 
-  3.  `html_content`:
-      - **AÇÃO:** Crie o conteúdo HTML principal.
-      - **REGRAS:**
-          - **Não use `<h1>`**. Use `<h2>` para títulos principais.
-          - Na seção "Informações Técnicas", **é obrigatório gerar uma tabela HTML (`<table class="info-table">`)**.
-          - **Não crie hyperlinks para a ANVISA** ou outros órgãos reguladores. Apenas mencione o nome "ANVISA".
+  ### Para "html_content" (STRING HTML):
+  1.  **SEM TAGS GLOBAIS:** O código **NÃO PODE** conter `<!DOCTYPE html>`, `<html>`, `<head>` ou `<body>`.
+  2.  **ESCOPO OBRIGATÓRIO:** TODO o conteúdo HTML DEVE estar dentro de uma `<div class="content-section">`.
+  3.  **HIERARQUIA DE TÍTULOS (REGRA CRÍTICA):** A estrutura de headings deve ser impecável. O título principal do conteúdo deve ser `<h2>`. Subtítulos devem ser `<h3>`. **É TERMINANTEMENTE PROIBIDO O USO DE `<h1>`**.
+  4.  **ORDEM DAS SEÇÕES:** Siga esta ordem rigorosamente: Título Principal (`<h2>`), Introdução, Benefícios (em lista `<ul>`), Como Funciona, Modo de Uso, Advertências, e Tabela de Informações (`<table>`).
+  5.  **EXCELÊNCIA NA ESCRITA:** Evite a repetição de palavras. Use sinônimos e varie a construção das frases.
 
-  4.  `faq_section`:
-      - **AÇÃO:** Crie a seção final da página como uma **string HTML única**.
-      - **REGRA DE ESTRUTURA:** A string HTML deve conter, nesta ordem:
-          1. O `<h2>` "Perguntas Frequentes" e as perguntas/respostas (`<details>`).
-          2. O aviso cinza sobre ler a bula (`<div class="legal-notice-box">`).
-          3. A nota de transparência final (`<p class="transparency-note-final">`).
+  ### Para "faq_section" (STRING HTML):
+  1.  **ESTRUTURA CRÍTICA:** Crie uma seção de FAQ usando as tags `<details open>` e `<summary>`.
+  2.  **PERGUNTAS EM H3:** Cada pergunta DEVE ser um título `<h3>` posicionado dentro da tag `<summary>`.
+  3.  **RESPOSTAS EM P:** A resposta deve ser um parágrafo `<p>` dentro da tag `<details>`.
 
-  5.  `schema_markup`:
-      - **AÇÃO:** Gere o script JSON-LD com os schemas `Drug` e `FAQPage`.
+  ### Para "schema_markup":
+  - Gere um JSON-LD Schema.org do tipo `Product` e `Drug` completo e válido para o produto.
 
-  **INSTRUÇÕES DE CONTEÚDO PARA OS AVISOS (DENTRO DA `faq_section`):**
-  - **Aviso Cinza:** `<div class="legal-notice-box"><p><strong>ATENÇÃO:</strong> Este medicamento é de uso adulto e exige prescrição médica...</p></div>`
-  - **Nota de Transparência:** `<p class="transparency-note-final">As informações contidas nesta página foram compiladas a partir da bula oficial...</p>`
+  --- INICIE A GERAÇÃO DO OBJETO JSON AGORA ---
