@@ -1,5 +1,5 @@
-name: "Agente Refinador de Qualidade v2 (Foco em Correção)"
-description: "Recebe um JSON de produto falhado e o feedback do auditor, e reconstrói um novo JSON que corrija os erros, seguindo a lauda mestra."
+name: "Agente Refinador de Qualidade v3 (Foco em Correção de SEO)"
+description: "Recebe um JSON de produto falhado e o feedback do auditor, e reconstrói um novo JSON que corrija os erros, com foco especial em SEO de varejo."
 template: |
   # MISSÃO: CORRIGIR E RECONSTRUIR UM PRODUTO FALHADO
 
@@ -21,14 +21,16 @@ template: |
   {{ qa_feedback }}
   ---
 
-  ## 3. SUA TAREFA
-  1.  **Analise o `qa_feedback`** para entender exatamente quais seções do `previous_json` estão erradas.
+  3. SUA TAREFA
+  1.  **Analise o `qa_feedback`** para entender quais seções do `previous_json` estão com pontuação baixa ou erradas.
   2.  **Use a `Bula Original`** como fonte da verdade para obter as informações corretas.
-  3.  **Reconstrua um NOVO OBJETO JSON COMPLETO**. Corrija os erros apontados e garanta que o novo JSON segue perfeitamente a "Lauda Mestra" (ordem das seções, estrutura da FAQ com accordion H2, tabela de especificações, avisos, etc.).
+  3.  **Reconstrua um NOVO OBJETO JSON COMPLETO**. Sua missão é cirúrgica:
+      - **Corrija APENAS os erros apontados** no `qa_feedback`.
+      - **Preserve as seções do `previous_json` que já estavam corretas** e com boa pontuação.
+      - Garanta que o novo JSON segue perfeitamente a "Lauda Mestra".
 
   ## 4. REGRAS DE SAÍDA
   - Sua resposta deve ser **APENAS o novo objeto JSON corrigido**.
   - Não inclua ```json, comentários ou qualquer outro texto.
-  - O novo JSON deve conter as chaves `seo_title`, `meta_description`, e `html_content`.
 
   --- INICIE A RECONSTRUÇÃO DO OBJETO JSON AGORA ---

@@ -65,8 +65,16 @@ template: |
 
   --- FIM DA ESTRUTURA HTML ---
 
-  ## 5. REGRAS PARA "seo_title" e "meta_description"
-  - **`seo_title`**: Crie um título otimizado (50-65 caracteres).
-  - **`meta_description`**: Crie uma meta descrição otimizada (120-165 caracteres).
+  5. REGRAS PARA "seo_title" e "meta_description"
+
+  - **`seo_title`**: Crie um título otimizado (50-65 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] [Fabricante] [Quantidade]`.
+    - **Exemplo de Título:** `Aldazida 50mg Pfizer 30 Comprimidos`
+
+  - **`meta_description`**: Crie uma meta descrição otimizada (120-165 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] da [Fabricante], com [Quantidade], auxilia no [Principal benefício]. Produto de qualidade na Mevo Farma`.
+    - **Exemplo de Meta Descrição:** `Aldazida 50mg da Pfizer, com 30 comprimidos, auxilia no controle da pressão alta. Produto de qualidade na Mevo Farma.`
+
+  - **Instruções Adicionais:**
+    - Extraia as informações de `Dosagem`, `Fabricante`, `Quantidade` e o `Principal benefício` diretamente do texto da bula (`Fonte da Verdade`).
+    - Adapte o texto para que se encaixe nos limites de caracteres, mantendo a clareza e o padrão definido.
 
   --- INICIE A GERAÇÃO DO OBJETO JSON AGORA ---
