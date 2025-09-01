@@ -3,25 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEVO - Processador Visual de Bulas</title>
+    <title>MEVO - Processador Visual de Conteúdo v2.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .file-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            border: 2px dashed #9ca3af;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-        }
-        .file-label:hover {
-            background-color: #f3f4f6;
-            border-color: #6b7280;
-        }
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
+        .file-label { transition: all 0.2s ease-in-out; }
+        .drag-over { background-color: #e0f2fe; border-color: #0284c7; }
         .loader {
             border: 4px solid #f3f4f6;
             border-top: 4px solid #3b82f6;
@@ -30,356 +18,440 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .review-card-approved {
-            border-color: #22c55e;
-            background-color: #f0fdf4;
-        }
-        .review-card-disapproved {
-            border-color: #ef4444;
-            background-color: #fef2f2;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Estilos das Notificações Toast */
+        #toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast { display: flex; align-items: center; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); transform: translateX(120%); opacity: 0; transition: all 0.4s cubic-bezier(0.21, 1.02, 0.73, 1); }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast-success { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+        .toast-error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .toast-info { background-color: #eff6ff; color: #1e40af; border: 1px solid #93c5fd; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
+    <div id="toast-container"></div>
+
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-blue-600">Processador de Conteúdo MEVO</h1>
-            <p class="text-gray-600 mt-2">Faça o upload dos arquivos, associe os SKUs e inicie o processamento.</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-600">Processador de Conteúdo MEVO</h1>
+            <p class="text-gray-600 mt-2">Otimize a criação de conteúdo para a sua loja de forma inteligente e visual.</p>
         </header>
 
         <main class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-6">
-            <div>
-                <h2 class="text-xl font-semibold mb-2">Passo 1: Carregue a Planilha de Produtos</h2>
-                <label for="spreadsheet-upload" class="file-label" id="spreadsheet-label">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    <span id="spreadsheet-text">Clique para selecionar a planilha (.xlsx)</span>
-                </label>
-                <input type="file" id="spreadsheet-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h2 class="text-xl font-semibold mb-2 text-gray-700">Passo 1: Planilha de Produtos</h2>
+                    <label for="spreadsheet-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer" id="spreadsheet-label">
+                        <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span id="spreadsheet-text" class="text-gray-600 font-medium">Arraste ou clique para selecionar a planilha (.xlsx)</span>
+                    </label>
+                    <input type="file" id="spreadsheet-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-2 text-gray-700">Passo 2: Bulas em PDF</h2>
+                    <label for="bulas-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer" id="bulas-label">
+                         <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                        <span id="bulas-text" class="text-gray-600 font-medium">Arraste ou clique para selecionar os PDFs</span>
+                    </label>
+                    <input type="file" id="bulas-upload" class="hidden" multiple accept=".pdf,application/pdf">
+                </div>
             </div>
-
-            <div>
-                <h2 class="text-xl font-semibold mb-2">Passo 2: Carregue as Bulas e Associe os SKUs</h2>
-                <label for="bulas-upload" class="file-label" id="bulas-label">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    <span id="bulas-text">Clique para selecionar um ou mais PDFs</span>
-                </label>
-                <input type="file" id="bulas-upload" class="hidden" multiple accept=".pdf,application/pdf">
-                <div id="file-sku-mapping-area" class="mt-4 space-y-3"></div>
-            </div>
+            
+            <div id="file-sku-mapping-area" class="mt-4 space-y-3"></div>
 
             <div class="text-center pt-4">
-                <button id="process-button" class="w-full md:w-auto bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mx-auto">
-                    <span id="button-text">Processar Planilha</span>
+                <button id="process-button" class="w-full md:w-auto bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mx-auto">
+                    <span id="button-text">Iniciar Processamento</span>
                     <div id="button-loader" class="loader hidden ml-3"></div>
                 </button>
             </div>
         </main>
         
-        <section id="review-section" class="mt-10 hidden">
-            <div class="text-center mb-8">
-                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Revisão e Aprovação</h2>
-                <p class="text-gray-500 mt-2">Revise o conteúdo gerado. Itens reprovados não serão incluídos na planilha final.</p>
-            </div>
-            
-            <div id="review-area" class="space-y-8"></div>
-
-            <div class="mt-8 text-center">
-                 <button id="finalize-button" class="w-full md:w-1/2 bg-green-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
-                    Finalizar e Gerar Planilha com Itens Aprovados
-                </button>
-            </div>
-        </section>
-
         <footer id="results-section" class="mt-8 bg-white p-6 md:p-8 rounded-xl shadow-lg hidden">
             <h2 class="text-2xl font-semibold mb-4 text-center">Log de Processamento</h2>
             <div id="status-messages" class="space-y-1 text-sm font-mono max-h-80 overflow-y-auto p-4 bg-gray-900 text-white rounded-lg"></div>
-            <div id="download-area" class="mt-6 text-center hidden">
-                <a id="download-link" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 inline-block">
-                    Download da Planilha Processada
-                </a>
-            </div>
         </footer>
+
+        <div id="review-container" class="mt-10 hidden space-y-10">
+            <section id="review-section">
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Revisão e Aprovação</h2>
+                    <p class="text-gray-500 mt-2">Ajuste e aprove o conteúdo gerado. Apenas itens aprovados irão para a planilha final.</p>
+                </div>
+                <div id="review-area" class="space-y-8"></div>
+                <div class="mt-8 text-center">
+                     <button id="finalize-button" class="w-full md:w-1/2 bg-emerald-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-emerald-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-300 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        Finalizar e Gerar Planilha de Aprovados
+                    </button>
+                </div>
+            </section>
+
+            <section id="disapproved-section" class="hidden">
+                 <div class="text-center mb-8">
+                    <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Itens Reprovados</h2>
+                    <p class="text-gray-500 mt-2">Tente corrigir os itens abaixo ou exporte-os para uma análise posterior.</p>
+                </div>
+                <div id="disapproved-area" class="space-y-8"></div>
+                <div class="mt-8 text-center flex flex-col md:flex-row gap-4 justify-center">
+                    <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600 transition-all">
+                        Tentar Corrigir Reprovados
+                    </button>
+                    <button id="finalize-disapproved-button" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition-all">
+                        Gerar Planilha de Reprovados
+                    </button>
+                </div>
+            </section>
+        </div>
     </div>
 
-<script>
-    // --- Seletores de Elementos ---
-    const spreadsheetUpload = document.getElementById('spreadsheet-upload');
-    const spreadsheetLabel = document.getElementById('spreadsheet-label');
-    const spreadsheetText = document.getElementById('spreadsheet-text');
-    const bulasUpload = document.getElementById('bulas-upload');
-    const bulasLabel = document.getElementById('bulas-label');
-    const bulasText = document.getElementById('bulas-text');
-    const fileSkuMappingArea = document.getElementById('file-sku-mapping-area');
-    const processButton = document.getElementById('process-button');
-    const buttonText = document.getElementById('button-text');
-    const buttonLoader = document.getElementById('button-loader');
-    const resultsSection = document.getElementById('results-section');
-    const statusMessages = document.getElementById('status-messages');
-    const downloadArea = document.getElementById('download-area');
-    const downloadLink = document.getElementById('download-link');
-    const reviewSection = document.getElementById('review-section');
-    const reviewArea = document.getElementById('review-area');
-    const finalizeButton = document.getElementById('finalize-button');
+    <template id="sku-mapping-template">
+        <div class="grid grid-cols-2 gap-4 items-center">
+            <div class="text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate" data-name="fileName"></div>
+            <input type="number" class="sku-input w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" placeholder="Digite o SKU aqui">
+        </div>
+    </template>
 
-    // --- Variáveis de Estado ---
-    let reviewData = {}; 
-    let reviewStatus = {}; 
-
-    // --- Event Listeners para UI ---
-    spreadsheetUpload.addEventListener('change', () => {
-        spreadsheetText.textContent = spreadsheetUpload.files.length > 0 ? spreadsheetUpload.files[0].name : 'Clique para selecionar a planilha (.xlsx)';
-        spreadsheetLabel.classList.toggle('border-green-500', spreadsheetUpload.files.length > 0);
-        spreadsheetLabel.classList.toggle('bg-green-50', spreadsheetUpload.files.length > 0);
-    });
-
-    bulasUpload.addEventListener('change', () => {
-        bulasText.textContent = bulasUpload.files.length > 0 ? `${bulasUpload.files.length} bula(s) selecionada(s)` : 'Clique para selecionar um ou mais PDFs';
-        bulasLabel.classList.toggle('border-green-500', bulasUpload.files.length > 0);
-        bulasLabel.classList.toggle('bg-green-50', bulasUpload.files.length > 0);
-        renderFileSkuMapping();
-    });
-
-    // --- Funções de UI ---
-    function renderFileSkuMapping() {
-        fileSkuMappingArea.innerHTML = '';
-        if (bulasUpload.files.length === 0) return;
-        const header = document.createElement('div');
-        header.className = 'grid grid-cols-2 gap-4 font-semibold text-gray-600 px-2';
-        header.innerHTML = `<span>Arquivo PDF</span><span>SKU Correspondente</span>`;
-        fileSkuMappingArea.appendChild(header);
-        Array.from(bulasUpload.files).forEach((file, index) => {
-            const mappingRow = document.createElement('div');
-            mappingRow.className = 'grid grid-cols-2 gap-4 items-center';
-            mappingRow.innerHTML = `
-                <div class="text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate">${file.name}</div>
-                <input type="number" class="sku-input w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Digite o SKU aqui" data-file-index="${index}">
-            `;
-            fileSkuMappingArea.appendChild(mappingRow);
-        });
-    }
-    
-    function addStatusMessage(message, type = 'info') {
-        const p = document.createElement('p');
-        const typeClasses = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
-        p.className = `py-1 ${typeClasses[type]}`;
-        const time = new Date().toLocaleTimeString();
-        p.innerHTML = `<span class="text-cyan-400">[${time}]</span> ${message}`;
-        statusMessages.appendChild(p);
-        statusMessages.scrollTop = statusMessages.scrollHeight;
-    }
-
-    function handleDownload(data) {
-        const byteCharacters = atob(data.file_data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = window.URL.createObjectURL(blob);
-        downloadLink.href = url;
-        downloadLink.download = data.filename;
-        downloadArea.classList.remove('hidden');
-    }
-
-    function renderReviewItem(item) {
-        const sku = item.sku;
-        reviewData[sku] = item;
-        reviewStatus[sku] = 'pending';
-
-        const card = document.createElement('div');
-        card.id = `card-${sku}`;
-        card.className = 'p-5 border-2 rounded-xl shadow-md bg-white transition-all duration-300 space-y-6';
-        
-        card.innerHTML = `
+    <template id="review-card-template">
+        <div class="p-5 border-2 rounded-xl shadow-md bg-white transition-all duration-300 space-y-6">
             <div class="flex flex-wrap justify-between items-center pb-4 border-b">
                 <div class="mb-2 sm:mb-0">
-                    <h3 class="font-bold text-xl text-blue-800">SKU: ${sku}</h3>
-                    <p class="text-md text-gray-600">${item.product_name}</p>
+                    <h3 class="font-bold text-xl text-sky-800" data-name="sku"></h3>
+                    <p class="text-md text-gray-600" data-name="productName"></p>
                 </div>
-                <div id="actions-${sku}" class="flex items-center space-x-3">
-                    <button onclick="disapproveItem(${sku})" class="disapprove-btn bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 font-semibold">Reprovar</button>
-                    <button onclick="approveItem(${sku})" class="approve-btn bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 font-semibold">Aprovar</button>
+                <div data-name="actions" class="flex items-center space-x-3">
+                    <button data-action="disapprove" class="disapprove-btn bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 font-semibold flex items-center gap-2"><span>Reprovar</span></button>
+                    <button data-action="approve" class="approve-btn bg-sky-500 text-white px-5 py-2 rounded-lg hover:bg-sky-600 font-semibold flex items-center gap-2"><span>Aprovar</span></button>
                 </div>
-                <div id="status-badge-${sku}" class="hidden"></div>
+                <div data-name="statusBadge" class="hidden"></div>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="title-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Título SEO</label>
-                    <textarea id="title-${sku}" rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg">${item.seo_title}</textarea>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Título SEO</label>
+                    <textarea rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg" data-name="seoTitle"></textarea>
                 </div>
                 <div>
-                    <label for="meta-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Meta Descrição</label>
-                    <textarea id="meta-${sku}" rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg">${item.meta_description}</textarea>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Meta Descrição</label>
+                    <textarea rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg" data-name="metaDescription"></textarea>
                 </div>
             </div>
-            
             <div>
-                <label for="html-${sku}" class="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
-                <textarea id="html-${sku}" rows="15" class="data-input w-full p-2 border border-gray-300 rounded-lg font-mono text-xs">${item.html_content}</textarea>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
+                <textarea rows="15" class="data-input w-full p-2 border border-gray-300 rounded-lg font-mono text-xs" data-name="htmlContent"></textarea>
             </div>
-
             <div class="bg-gray-50 p-4 rounded-lg">
                 <label class="block text-sm font-medium text-gray-700 mb-2 text-center">Preview Visual</label>
-                <iframe id="preview-${sku}" class="w-full h-full border bg-white rounded-lg" style="min-height: 500px;"></iframe>
+                <iframe class="w-full h-full border bg-white rounded-lg" style="min-height: 500px;" data-name="previewFrame"></iframe>
             </div>
-        `;
-        reviewArea.appendChild(card);
+        </div>
+    </template>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // -----------------------------------------------------------------------------
+        // ESTADO CENTRAL DA APLICAÇÃO
+        // -----------------------------------------------------------------------------
+        const state = {
+            spreadsheetFile: null,
+            bulaFiles: [],
+            fileSkuMappings: {}, // { sku: { fileIndex, fileName } }
+            reviewItems: {}, // { sku: { productName, ..., status } }
+            ui: { isProcessing: false }
+        };
+
+        // -----------------------------------------------------------------------------
+        // SELETORES DE ELEMENTOS DOM
+        // -----------------------------------------------------------------------------
+        const dom = {
+            spreadsheetUpload: document.getElementById('spreadsheet-upload'),
+            spreadsheetLabel: document.getElementById('spreadsheet-label'),
+            spreadsheetText: document.getElementById('spreadsheet-text'),
+            bulasUpload: document.getElementById('bulas-upload'),
+            bulasLabel: document.getElementById('bulas-label'),
+            bulasText: document.getElementById('bulas-text'),
+            fileSkuMappingArea: document.getElementById('file-sku-mapping-area'),
+            processButton: document.getElementById('process-button'),
+            buttonText: document.getElementById('button-text'),
+            buttonLoader: document.getElementById('button-loader'),
+            resultsSection: document.getElementById('results-section'),
+            statusMessages: document.getElementById('status-messages'),
+            reviewContainer: document.getElementById('review-container'),
+            reviewArea: document.getElementById('review-area'),
+            finalizeButton: document.getElementById('finalize-button'),
+            disapprovedSection: document.getElementById('disapproved-section'),
+            disapprovedArea: document.getElementById('disapproved-area'),
+            reprocessButton: document.getElementById('reprocess-button'),
+            finalizeDisapprovedButton: document.getElementById('finalize-disapproved-button'),
+            toastContainer: document.getElementById('toast-container'),
+        };
+
+        // -----------------------------------------------------------------------------
+        // SERVIÇO DE API
+        // -----------------------------------------------------------------------------
+        const apiService = {
+            baseUrl: 'http://127.0.0.1:8000',
+            async streamRequest(endpoint, formData, onEvent) {
+                const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Erro no servidor');
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    chunk.split('\n\n').filter(line => line.trim()).forEach(line => {
+                        const event = line.match(/event: (.+)/)?.[1];
+                        const data = line.match(/data: (.+)/)?.[1];
+                        if (event && data) onEvent(event, JSON.parse(data));
+                    });
+                }
+            },
+            async finalize(endpoint, formData) {
+                const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error((await response.json()).detail || 'Falha na finalização');
+                return response.json();
+            }
+        };
         
-        const iframe = document.getElementById(`preview-${sku}`);
-        iframe.srcdoc = item.html_content;
-        document.getElementById(`html-${sku}`).addEventListener('input', (e) => {
-            iframe.srcdoc = e.target.value;
-        });
-    }
-
-    function setItemStatus(sku, status) {
-        reviewStatus[sku] = status;
-        const card = document.getElementById(`card-${sku}`);
-        const actionsDiv = document.getElementById(`actions-${sku}`);
-        const statusBadge = document.getElementById(`status-badge-${sku}`);
-
-        card.classList.remove('review-card-approved', 'review-card-disapproved');
-        actionsDiv.classList.add('hidden');
-        statusBadge.classList.remove('hidden');
-
-        if (status === 'approved') {
-            card.classList.add('review-card-approved');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
-            reviewData[sku].seo_title = document.getElementById(`title-${sku}`).value;
-            reviewData[sku].meta_description = document.getElementById(`meta-${sku}`).value;
-            reviewData[sku].html_content = document.getElementById(`html-${sku}`).value;
-        } else if (status === 'disapproved') {
-            card.classList.add('review-card-disapproved');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
-        }
-        checkFinalizeButtonState();
-    }
-
-    function approveItem(sku) { setItemStatus(sku, 'approved'); }
-    function disapproveItem(sku) { setItemStatus(sku, 'disapproved'); }
-
-    function checkFinalizeButtonState() {
-        const statuses = Object.values(reviewStatus);
-        const hasPending = statuses.some(s => s === 'pending');
-        const hasApproved = statuses.some(s => s === 'approved');
-        finalizeButton.disabled = hasPending || !hasApproved;
-    }
-
-    // --- Lógica Principal de Processamento ---
-    processButton.addEventListener('click', async () => {
-        if (spreadsheetUpload.files.length === 0) { alert('Por favor, selecione a planilha de produtos.'); return; }
-        const skuInputs = document.querySelectorAll('.sku-input');
-        if (skuInputs.length === 0) { alert('Por favor, selecione pelo menos um arquivo PDF de bula.'); return; }
-        const skus = Array.from(skuInputs).map(input => input.value.trim());
-        if (skus.some(sku => sku === '')) { alert('Por favor, preencha o SKU para todos os arquivos de bula selecionados.'); return; }
-
-        processButton.disabled = true;
-        buttonText.textContent = 'Processando...';
-        buttonLoader.classList.remove('hidden');
-        resultsSection.classList.remove('hidden');
-        reviewSection.classList.add('hidden');
-        reviewArea.innerHTML = '';
-        reviewData = {};
-        reviewStatus = {};
-        finalizeButton.disabled = true;
-        statusMessages.innerHTML = '';
-        downloadArea.classList.add('hidden');
-
-        const formData = new FormData();
-        formData.append('spreadsheet', spreadsheetUpload.files[0]);
-        Array.from(bulasUpload.files).forEach(file => formData.append('bulas', file));
-        formData.append('skus_json', JSON.stringify(skus));
-
-        try {
-            const response = await fetch('http://127.0.0.1:8000/process-for-review', { method: 'POST', body: formData });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `Erro do servidor: ${response.statusText}`);
+        // -----------------------------------------------------------------------------
+        // FUNÇÕES DA INTERFACE (UI)
+        // -----------------------------------------------------------------------------
+        const ui = {
+            showToast(message, type = 'info') {
+                const types = { success: 'toast-success', error: 'toast-error', info: 'toast-info' };
+                const toast = document.createElement('div');
+                toast.className = `toast ${types[type]}`;
+                toast.textContent = message;
+                dom.toastContainer.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.addEventListener('transitionend', () => toast.remove());
+                }, 5000);
+            },
+            addStatusMessage(message, type = 'info') {
+                const colors = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
+                const time = new Date().toLocaleTimeString();
+                dom.statusMessages.innerHTML += `<p class="${colors[type]}"><span class="text-cyan-400">[${time}]</span> ${message}</p>`;
+                dom.statusMessages.scrollTop = dom.statusMessages.scrollHeight;
+            },
+            renderSkuMapping() {
+                dom.fileSkuMappingArea.innerHTML = state.bulaFiles.length > 0 ? `<div class="grid grid-cols-2 gap-4 font-semibold text-gray-600 px-2"><span>Arquivo PDF</span><span>SKU</span></div>` : '';
+                const template = document.getElementById('sku-mapping-template');
+                state.bulaFiles.forEach((file, index) => {
+                    const clone = template.content.cloneNode(true);
+                    clone.querySelector('[data-name="fileName"]').textContent = file.name;
+                    const input = clone.querySelector('.sku-input');
+                    input.dataset.fileIndex = index;
+                    input.dataset.fileName = file.name;
+                    dom.fileSkuMappingArea.appendChild(clone);
+                });
+            },
+            renderReviewCard(item) {
+                const sku = item.sku;
+                state.reviewItems[sku] = { ...item, status: 'pending' };
+                const template = document.getElementById('review-card-template');
+                const card = template.content.cloneNode(true).firstElementChild;
+                card.id = `card-${sku}`;
+                card.querySelector('[data-name="sku"]').textContent = `SKU: ${sku}`;
+                card.querySelector('[data-name="productName"]').textContent = item.product_name;
+                card.querySelector('[data-name="seoTitle"]').value = item.seo_title;
+                card.querySelector('[data-name="metaDescription"]').value = item.meta_description;
+                const htmlContentArea = card.querySelector('[data-name="htmlContent"]');
+                const previewFrame = card.querySelector('[data-name="previewFrame"]');
+                htmlContentArea.value = item.html_content;
+                previewFrame.srcdoc = item.html_content;
+                htmlContentArea.addEventListener('input', e => previewFrame.srcdoc = e.target.value);
+                card.querySelector('[data-action="approve"]').onclick = () => handleItemAction(sku, 'approved');
+                card.querySelector('[data-action="disapprove"]').onclick = () => handleItemAction(sku, 'disapproved');
+                dom.reviewArea.appendChild(card);
+            },
+            updateGlobalUI() {
+                const statuses = Object.values(state.reviewItems).map(item => item.status);
+                const hasPending = statuses.some(s => s === 'pending');
+                const hasApproved = statuses.some(s => s === 'approved');
+                const hasDisapproved = statuses.some(s => s === 'disapproved');
+                dom.finalizeButton.disabled = hasPending || !hasApproved;
+                dom.disapprovedSection.classList.toggle('hidden', !hasDisapproved);
+                dom.reviewContainer.classList.toggle('hidden', Object.keys(state.reviewItems).length === 0);
+            },
+            setProcessingState(isProcessing) {
+                state.ui.isProcessing = isProcessing;
+                dom.processButton.disabled = isProcessing;
+                dom.buttonText.textContent = isProcessing ? 'Processando...' : 'Iniciar Processamento';
+                dom.buttonLoader.classList.toggle('hidden', !isProcessing);
             }
+        };
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+        // -----------------------------------------------------------------------------
+        // MANIPULADORES DE EVENTOS E LÓGICA DE NEGÓCIO
+        // -----------------------------------------------------------------------------
+        function handleFileUpload(event, fileType) {
+            const files = event.target.files;
+            if (fileType === 'spreadsheet') {
+                state.spreadsheetFile = files[0];
+                dom.spreadsheetText.textContent = state.spreadsheetFile.name;
+                dom.spreadsheetLabel.classList.add('border-green-500', 'bg-green-50');
+            } else {
+                state.bulaFiles = Array.from(files);
+                dom.bulasText.textContent = `${state.bulaFiles.length} bula(s) selecionada(s)`;
+                dom.bulasLabel.classList.add('border-green-500', 'bg-green-50');
+                ui.renderSkuMapping();
+            }
+        }
+        
+        function setupDragAndDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                [dom.spreadsheetLabel, dom.bulasLabel].forEach(label => {
+                    label.addEventListener(eventName, e => e.preventDefault());
+                    if (eventName === 'dragenter' || eventName === 'dragover') label.classList.add('drag-over');
+                    if (eventName === 'dragleave' || eventName === 'drop') label.classList.remove('drag-over');
+                });
+            });
+            dom.spreadsheetLabel.addEventListener('drop', e => {
+                dom.spreadsheetUpload.files = e.dataTransfer.files;
+                handleFileUpload({ target: dom.spreadsheetUpload }, 'spreadsheet');
+            });
+            dom.bulasLabel.addEventListener('drop', e => {
+                dom.bulasUpload.files = e.dataTransfer.files;
+                handleFileUpload({ target: dom.bulasUpload }, 'bula');
+            });
+        }
+        
+        async function startProcessing(isReprocessing = false, itemsToReprocess = []) {
+            let filesForUpload, skusForUpload;
             
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) {
-                    addStatusMessage("Processamento concluído. Aguardando sua revisão e aprovação...", "success");
-                    if (Object.keys(reviewData).length > 0) {
-                        reviewSection.classList.remove('hidden');
-                    } else {
-                        addStatusMessage("Nenhum item válido foi encontrado para revisão.", "warning");
-                    }
-                    break;
+            if (isReprocessing) {
+                filesForUpload = itemsToReprocess.map(item => state.bulaFiles[item.fileIndex]);
+                skusForUpload = itemsToReprocess.map(item => item.sku);
+            } else {
+                const skuInputs = Array.from(dom.fileSkuMappingArea.querySelectorAll('.sku-input'));
+                if (!state.spreadsheetFile || state.bulaFiles.length === 0 || skuInputs.some(i => !i.value.trim())) {
+                    return ui.showToast('Por favor, selecione a planilha, as bulas e preencha todos os SKUs.', 'error');
                 }
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n\n').filter(line => line.trim() !== '');
-
-                for (const line of lines) {
-                    if (line.startsWith('event: log')) {
-                        const logData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
-                        addStatusMessage(logData.message, logData.type);
-                    } else if (line.startsWith('event: review_item')) {
-                        const itemData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
-                        renderReviewItem(itemData);
-                    } else if (line.startsWith('event: error')) {
-                         const errorData = JSON.parse(line.substring(line.indexOf('data: ') + 6));
-                         addStatusMessage(errorData.message, errorData.type);
-                    }
-                }
+                ui.setProcessingState(true);
+                dom.resultsSection.classList.remove('hidden');
+                dom.reviewContainer.classList.add('hidden');
+                dom.reviewArea.innerHTML = '';
+                dom.disapprovedArea.innerHTML = '';
+                dom.statusMessages.innerHTML = '';
+                state.reviewItems = {};
+                
+                state.fileSkuMappings = {};
+                skuInputs.forEach(input => {
+                    const sku = input.value.trim();
+                    if (sku) state.fileSkuMappings[sku] = { fileIndex: parseInt(input.dataset.fileIndex), fileName: input.dataset.fileName };
+                });
+                
+                filesForUpload = state.bulaFiles;
+                skusForUpload = Object.keys(state.fileSkuMappings);
             }
-        } catch (error) {
-            console.error('Erro no processamento:', error);
-            addStatusMessage(`Falha na conexão com a API: ${error.message}`, 'error');
-        } finally {
-            buttonText.textContent = 'Processar Novamente';
-            buttonLoader.classList.add('hidden');
-            processButton.disabled = false;
+
+            const formData = new FormData();
+            formData.append('spreadsheet', state.spreadsheetFile);
+            filesForUpload.forEach(file => formData.append('bulas', file));
+            formData.append('skus_json', JSON.stringify(skusForUpload));
+
+            try {
+                const onEvent = (type, data) => {
+                    if (type === 'log') ui.addStatusMessage(data.message, data.type);
+                    if (type === 'review_item') ui.renderReviewCard(data);
+                    if (type === 'error') ui.showToast(data.message, 'error');
+                };
+                
+                if (isReprocessing) {
+                    await apiService.streamRequest('/reprocess-items', formData, onEvent);
+                } else {
+                    await apiService.streamRequest('/process-for-review', formData, onEvent);
+                }
+                
+                ui.addStatusMessage(`${isReprocessing ? 'Re' : ''}processamento concluído.`, "success");
+                ui.updateGlobalUI();
+
+            } catch (error) {
+                ui.showToast(error.message, 'error');
+            } finally {
+                if (!isReprocessing) ui.setProcessingState(false);
+            }
         }
-    });
+        
+        function handleItemAction(sku, status) {
+            state.reviewItems[sku].status = status;
+            const card = document.getElementById(`card-${sku}`);
+            
+            // Salva as edições atuais no estado ANTES de qualquer coisa
+            if (status === 'approved') {
+                state.reviewItems[sku].seo_title = card.querySelector('[data-name="seoTitle"]').value;
+                state.reviewItems[sku].meta_description = card.querySelector('[data-name="metaDescription"]').value;
+                state.reviewItems[sku].html_content = card.querySelector('[data-name="htmlContent"]').value;
+            }
 
-    // --- Lógica de Finalização ---
-    finalizeButton.addEventListener('click', async () => {
-        finalizeButton.disabled = true;
-        finalizeButton.textContent = 'Finalizando...';
-        addStatusMessage("Enviando dados aprovados para o servidor...", "info");
+            // Atualiza a UI do card
+            card.querySelector('[data-name="actions"]').classList.add('hidden');
+            const statusBadge = card.querySelector('[data-name="statusBadge"]');
+            statusBadge.classList.remove('hidden');
+            card.classList.remove('border-green-500', 'border-red-500', 'bg-green-50', 'bg-red-50');
 
-        const approvedData = Object.keys(reviewData)
-            .filter(sku => reviewStatus[sku] === 'approved')
-            .map(sku => reviewData[sku]);
-
-        if (approvedData.length === 0) {
-            addStatusMessage("Nenhum item foi aprovado. Nada a finalizar.", "warning");
-            finalizeButton.textContent = 'Finalizar e Gerar Planilha com Itens Aprovados';
-            return;
-        }
-
-        try {
-            const finalFormData = new FormData();
-            finalFormData.append('spreadsheet', spreadsheetUpload.files[0]);
-            finalFormData.append('approved_data_json', JSON.stringify(approvedData));
-
-            const response = await fetch('http://127.0.0.1:8000/finalize-spreadsheet', { method: 'POST', body: finalFormData });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Falha ao finalizar a planilha.');
+            if (status === 'approved') {
+                card.classList.add('border-green-500', 'bg-green-50');
+                statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
+            } else {
+                card.classList.add('border-red-500', 'bg-red-50');
+                statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
+                dom.disapprovedArea.appendChild(card);
             }
             
-            const result = await response.json();
-            handleDownload(result);
-            addStatusMessage(`Planilha final gerada com ${approvedData.length} item(ns) aprovado(s)!`, "success");
-
-        } catch (error) {
-            console.error('Erro na finalização:', error);
-            addStatusMessage(`Erro ao gerar a planilha final: ${error.message}`, 'error');
-        } finally {
-            finalizeButton.textContent = 'Finalizar e Gerar Planilha com Itens Aprovados';
+            ui.updateGlobalUI();
         }
+
+        async function finalize(type) {
+            const dataToFinalize = Object.values(state.reviewItems).filter(item => item.status === type);
+            if (dataToFinalize.length === 0) return ui.showToast(`Nenhum item ${type === 'approved' ? 'aprovado' : 'reprovado'}.`, 'info');
+            
+            const formData = new FormData();
+            formData.append('spreadsheet', state.spreadsheetFile);
+            const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
+            const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
+            formData.append(jsonKey, JSON.stringify(dataToFinalize));
+            
+            try {
+                const result = await apiService.finalize(endpoint, formData);
+                ui.showToast(`Planilha gerada com sucesso!`, 'success');
+                const byteCharacters = atob(result.file_data);
+                const byteArray = new Uint8Array(byteCharacters.length).map((_, i) => byteCharacters.charCodeAt(i));
+                const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: result.filename });
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(a.href);
+                a.remove();
+            } catch (error) {
+                ui.showToast(error.message, 'error');
+            }
+        }
+
+        function reprocessDisapproved() {
+            const itemsToReprocess = Object.entries(state.reviewItems)
+                .filter(([_, item]) => item.status === 'disapproved')
+                .map(([sku, _]) => ({ sku, ...state.fileSkuMappings[sku] }));
+            
+            if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados.', 'info');
+            
+            itemsToReprocess.forEach(item => {
+                document.getElementById(`card-${item.sku}`)?.remove();
+                delete state.reviewItems[item.sku];
+            });
+            
+            startProcessing(true, itemsToReprocess);
+        }
+        dom.spreadsheetUpload.addEventListener('change', e => handleFileUpload(e, 'spreadsheet'));
+        dom.bulasUpload.addEventListener('change', e => handleFileUpload(e, 'bula'));
+        dom.processButton.addEventListener('click', () => startProcessing(false));
+        dom.finalizeButton.addEventListener('click', () => finalize('approved'));
+        dom.finalizeDisapprovedButton.addEventListener('click', () => finalize('disapproved'));
+        dom.reprocessButton.addEventListener('click', reprocessDisapproved);
+        setupDragAndDrop();
     });
 </script>
 </body>
