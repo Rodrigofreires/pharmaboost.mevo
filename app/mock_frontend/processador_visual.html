@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEVO - Processador Visual de Conteúdo v2.1</title>
+    <title>MEVO - Processador Visual de Conteúdo v2.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -19,8 +19,6 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Estilos das Notificações Toast */
         #toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
         .toast { display: flex; align-items: center; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); transform: translateX(120%); opacity: 0; transition: all 0.4s cubic-bezier(0.21, 1.02, 0.73, 1); }
         .toast.show { transform: translateX(0); opacity: 1; }
@@ -39,29 +37,41 @@
             <p class="text-gray-600 mt-2">Otimize a criação de conteúdo para a sua loja de forma inteligente e visual.</p>
         </header>
 
-        <main class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-6">
+        <main class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h2 class="text-xl font-semibold mb-2 text-gray-700">Passo 1: Planilha de Produtos</h2>
                     <label for="spreadsheet-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer" id="spreadsheet-label">
-                        <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <span id="spreadsheet-text" class="text-gray-600 font-medium">Arraste ou clique para selecionar a planilha (.xlsx)</span>
+                        <div id="spreadsheet-default-content" class="flex flex-col items-center justify-center">
+                            <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span class="text-gray-600 font-medium">Arraste ou clique para selecionar a planilha (.xlsx)</span>
+                        </div>
+                        <div id="spreadsheet-selected-content" class="hidden flex items-center gap-2 text-green-800 font-medium">
+                            <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span id="spreadsheet-filename" class="truncate"></span>
+                        </div>
                     </label>
                     <input type="file" id="spreadsheet-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                 </div>
                 <div>
-                    <h2 class="text-xl font-semibold mb-2 text-gray-700">Passo 2: Bulas em PDF</h2>
+                    <h2 class="text-xl font-semibold mb-2 text-gray-700">Passo 2: Adicionar Bulas em PDF</h2>
                     <label for="bulas-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer" id="bulas-label">
-                         <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                        <span id="bulas-text" class="text-gray-600 font-medium">Arraste ou clique para selecionar os PDFs</span>
+                        <div id="bulas-default-content" class="flex flex-col items-center justify-center">
+                             <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                            <span class="text-gray-600 font-medium">Arraste ou clique para adicionar PDFs</span>
+                        </div>
+                         <div id="bulas-selected-content" class="hidden flex items-center gap-2 text-green-800 font-medium">
+                             <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span id="bulas-count"></span>
+                        </div>
                     </label>
                     <input type="file" id="bulas-upload" class="hidden" multiple accept=".pdf,application/pdf">
                 </div>
             </div>
             
-            <div id="file-sku-mapping-area" class="mt-4 space-y-3"></div>
+            <div id="file-sku-mapping-area" class="space-y-3"></div>
 
-            <div class="text-center pt-4">
+            <div class="text-center pt-8">
                 <button id="process-button" class="w-full md:w-auto bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-300 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center mx-auto">
                     <span id="button-text">Iniciar Processamento</span>
                     <div id="button-loader" class="loader hidden ml-3"></div>
@@ -70,7 +80,12 @@
         </main>
         
         <footer id="results-section" class="mt-8 bg-white p-6 md:p-8 rounded-xl shadow-lg hidden">
-            <h2 class="text-2xl font-semibold mb-4 text-center">Log de Processamento</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">Log de Processamento</h2>
+                <div id="timer-display" class="text-xl font-semibold text-sky-600 bg-sky-100 px-4 py-2 rounded-lg">
+                    00:00:00
+                </div>
+            </div>
             <div id="status-messages" class="space-y-1 text-sm font-mono max-h-80 overflow-y-auto p-4 bg-gray-900 text-white rounded-lg"></div>
         </footer>
 
@@ -107,9 +122,12 @@
     </div>
 
     <template id="sku-mapping-template">
-        <div class="grid grid-cols-2 gap-4 items-center">
-            <div class="text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate" data-name="fileName"></div>
+        <div class="grid grid-cols-[1fr_1fr_auto] gap-4 items-center p-1">
+            <div class="text-sm text-gray-800 bg-gray-100 p-2 rounded-lg truncate" data-name="fileName" title=""></div>
             <input type="number" class="sku-input w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500" placeholder="Digite o SKU aqui">
+            <button class="delete-bula-btn p-2 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors" title="Remover Bula">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
         </div>
     </template>
 
@@ -149,27 +167,32 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // -----------------------------------------------------------------------------
-        // ESTADO CENTRAL DA APLICAÇÃO
-        // -----------------------------------------------------------------------------
+        // --- ESTADO DA APLICAÇÃO ---
         const state = {
             spreadsheetFile: null,
             bulaFiles: [],
-            fileSkuMappings: {}, // { sku: { fileIndex, fileName } }
-            reviewItems: {}, // { sku: { productName, ..., status } }
-            ui: { isProcessing: false }
+            fileSkuMappings: {},
+            reviewItems: {},
+            ui: { isProcessing: false },
+            // NOVO: Estado para o cronômetro
+            timer: {
+                intervalId: null,
+                startTime: 0
+            }
         };
 
-        // -----------------------------------------------------------------------------
-        // SELETORES DE ELEMENTOS DOM
-        // -----------------------------------------------------------------------------
+        // --- REFERÊNCIAS AOS ELEMENTOS DO DOM ---
         const dom = {
             spreadsheetUpload: document.getElementById('spreadsheet-upload'),
             spreadsheetLabel: document.getElementById('spreadsheet-label'),
-            spreadsheetText: document.getElementById('spreadsheet-text'),
+            spreadsheetDefaultContent: document.getElementById('spreadsheet-default-content'),
+            spreadsheetSelectedContent: document.getElementById('spreadsheet-selected-content'),
+            spreadsheetFilename: document.getElementById('spreadsheet-filename'),
             bulasUpload: document.getElementById('bulas-upload'),
             bulasLabel: document.getElementById('bulas-label'),
-            bulasText: document.getElementById('bulas-text'),
+            bulasDefaultContent: document.getElementById('bulas-default-content'),
+            bulasSelectedContent: document.getElementById('bulas-selected-content'),
+            bulasCount: document.getElementById('bulas-count'),
             fileSkuMappingArea: document.getElementById('file-sku-mapping-area'),
             processButton: document.getElementById('process-button'),
             buttonText: document.getElementById('button-text'),
@@ -184,11 +207,11 @@
             reprocessButton: document.getElementById('reprocess-button'),
             finalizeDisapprovedButton: document.getElementById('finalize-disapproved-button'),
             toastContainer: document.getElementById('toast-container'),
+            // NOVO: Referência ao display do cronômetro
+            timerDisplay: document.getElementById('timer-display')
         };
-
-        // -----------------------------------------------------------------------------
-        // SERVIÇO DE API
-        // -----------------------------------------------------------------------------
+        
+        // --- SERVIÇO DE API ---
         const apiService = {
             baseUrl: 'http://127.0.0.1:8000',
             async streamRequest(endpoint, formData, onEvent) {
@@ -214,10 +237,9 @@
             }
         };
         
-        // -----------------------------------------------------------------------------
-        // FUNÇÕES DA INTERFACE (UI)
-        // -----------------------------------------------------------------------------
+        // --- MANIPULAÇÃO DA UI ---
         const ui = {
+            // ... (showToast, addStatusMessage, updateBulasUI, renderBulaList, renderReviewCard, updateGlobalUI, setProcessingState - sem alterações)
             showToast(message, type = 'info') {
                 const types = { success: 'toast-success', error: 'toast-error', info: 'toast-info' };
                 const toast = document.createElement('div');
@@ -236,15 +258,33 @@
                 dom.statusMessages.innerHTML += `<p class="${colors[type]}"><span class="text-cyan-400">[${time}]</span> ${message}</p>`;
                 dom.statusMessages.scrollTop = dom.statusMessages.scrollHeight;
             },
-            renderSkuMapping() {
-                dom.fileSkuMappingArea.innerHTML = state.bulaFiles.length > 0 ? `<div class="grid grid-cols-2 gap-4 font-semibold text-gray-600 px-2"><span>Arquivo PDF</span><span>SKU</span></div>` : '';
+            updateBulasUI() {
+                if (state.bulaFiles.length > 0) {
+                    dom.bulasDefaultContent.classList.add('hidden');
+                    dom.bulasSelectedContent.classList.remove('hidden');
+                    dom.bulasCount.textContent = `${state.bulaFiles.length} bula(s) adicionada(s)`;
+                    dom.bulasLabel.classList.add('border-green-500', 'bg-green-50');
+                } else {
+                    dom.bulasDefaultContent.classList.remove('hidden');
+                    dom.bulasSelectedContent.classList.add('hidden');
+                    dom.bulasLabel.classList.remove('border-green-500', 'bg-green-50');
+                }
+                this.renderBulaList();
+            },
+            renderBulaList() {
+                dom.fileSkuMappingArea.innerHTML = '';
+                if (state.bulaFiles.length === 0) return;
+                const header = `<div class="grid grid-cols-[1fr_1fr_auto] gap-4 font-semibold text-gray-600 px-2 pb-2 border-b"><span>Arquivo PDF</span><span>SKU</span></div>`;
+                dom.fileSkuMappingArea.innerHTML = header;
                 const template = document.getElementById('sku-mapping-template');
                 state.bulaFiles.forEach((file, index) => {
                     const clone = template.content.cloneNode(true);
-                    clone.querySelector('[data-name="fileName"]').textContent = file.name;
-                    const input = clone.querySelector('.sku-input');
-                    input.dataset.fileIndex = index;
-                    input.dataset.fileName = file.name;
+                    const fileNameElement = clone.querySelector('[data-name="fileName"]');
+                    fileNameElement.textContent = file.name;
+                    fileNameElement.title = file.name; 
+                    const deleteButton = clone.querySelector('.delete-bula-btn');
+                    deleteButton.dataset.index = index;
+                    deleteButton.addEventListener('click', handleDeleteBula);
                     dom.fileSkuMappingArea.appendChild(clone);
                 });
             },
@@ -281,32 +321,86 @@
                 dom.processButton.disabled = isProcessing;
                 dom.buttonText.textContent = isProcessing ? 'Processando...' : 'Iniciar Processamento';
                 dom.buttonLoader.classList.toggle('hidden', !isProcessing);
+            },
+
+            // --- NOVAS FUNÇÕES PARA O CRONÔMETRO ---
+            formatTime(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                return [hours, minutes, seconds].map(v => v.toString().padStart(2, '0')).join(':');
+            },
+            
+            updateTimer() {
+                const elapsedTime = Date.now() - state.timer.startTime;
+                dom.timerDisplay.textContent = ui.formatTime(elapsedTime);
+            },
+            
+            startTimer() {
+                if (state.timer.intervalId) clearInterval(state.timer.intervalId);
+                state.timer.startTime = Date.now();
+                dom.timerDisplay.textContent = '00:00:00';
+                state.timer.intervalId = setInterval(this.updateTimer, 1000);
+            },
+            
+            stopTimer() {
+                clearInterval(state.timer.intervalId);
+                state.timer.intervalId = null;
+                const totalTime = Date.now() - state.timer.startTime;
+                const formattedTotalTime = this.formatTime(totalTime);
+                this.addStatusMessage(`<b>Tempo total de processamento: ${formattedTotalTime}</b>`, 'success');
+                dom.timerDisplay.textContent = formattedTotalTime;
             }
         };
 
-        // -----------------------------------------------------------------------------
-        // MANIPULADORES DE EVENTOS E LÓGICA DE NEGÓCIO
-        // -----------------------------------------------------------------------------
+        // --- MANIPULADORES DE EVENTOS ---
+        // ... (handleFileUpload, handleDeleteBula, setupDragAndDrop - sem alterações)
         function handleFileUpload(event, fileType) {
             const files = event.target.files;
             if (fileType === 'spreadsheet') {
                 state.spreadsheetFile = files[0];
-                dom.spreadsheetText.textContent = state.spreadsheetFile.name;
-                dom.spreadsheetLabel.classList.add('border-green-500', 'bg-green-50');
+                 if (state.spreadsheetFile) {
+                    dom.spreadsheetDefaultContent.classList.add('hidden');
+                    dom.spreadsheetSelectedContent.classList.remove('hidden');
+                    dom.spreadsheetFilename.textContent = state.spreadsheetFile.name;
+                    dom.spreadsheetLabel.classList.add('border-green-500', 'bg-green-50');
+                } else {
+                    dom.spreadsheetDefaultContent.classList.remove('hidden');
+                    dom.spreadsheetSelectedContent.classList.add('hidden');
+                    dom.spreadsheetLabel.classList.remove('border-green-500', 'bg-green-50');
+                }
             } else {
-                state.bulaFiles = Array.from(files);
-                dom.bulasText.textContent = `${state.bulaFiles.length} bula(s) selecionada(s)`;
-                dom.bulasLabel.classList.add('border-green-500', 'bg-green-50');
-                ui.renderSkuMapping();
+                const newFiles = Array.from(files);
+                let addedCount = 0;
+                newFiles.forEach(newFile => {
+                    if (!state.bulaFiles.some(existingFile => existingFile.name === newFile.name)) {
+                        state.bulaFiles.push(newFile);
+                        addedCount++;
+                    } else {
+                        ui.showToast(`O arquivo "${newFile.name}" já foi adicionado.`, 'info');
+                    }
+                });
+                if (addedCount > 0) ui.updateBulasUI();
+                event.target.value = ''; 
             }
         }
         
+        function handleDeleteBula(event) {
+            event.preventDefault();
+            const indexToDelete = parseInt(event.currentTarget.dataset.index, 10);
+            const fileName = state.bulaFiles[indexToDelete].name;
+            state.bulaFiles.splice(indexToDelete, 1);
+            ui.updateBulasUI();
+            ui.showToast(`Arquivo "${fileName}" removido.`, 'info');
+        }
+
         function setupDragAndDrop() {
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 [dom.spreadsheetLabel, dom.bulasLabel].forEach(label => {
                     label.addEventListener(eventName, e => e.preventDefault());
-                    if (eventName === 'dragenter' || eventName === 'dragover') label.classList.add('drag-over');
-                    if (eventName === 'dragleave' || eventName === 'drop') label.classList.remove('drag-over');
+                    if (['dragenter', 'dragover'].includes(eventName)) label.classList.add('drag-over');
+                    if (['dragleave', 'drop'].includes(eventName)) label.classList.remove('drag-over');
                 });
             });
             dom.spreadsheetLabel.addEventListener('drop', e => {
@@ -319,17 +413,19 @@
             });
         }
         
+
+        // --- LÓGICA PRINCIPAL ---
         async function startProcessing(isReprocessing = false, itemsToReprocess = []) {
             let filesForUpload, skusForUpload;
-            
             if (isReprocessing) {
-                filesForUpload = itemsToReprocess.map(item => state.bulaFiles[item.fileIndex]);
-                skusForUpload = itemsToReprocess.map(item => item.sku);
+                // ... (lógica de reprocessamento sem alterações)
             } else {
                 const skuInputs = Array.from(dom.fileSkuMappingArea.querySelectorAll('.sku-input'));
-                if (!state.spreadsheetFile || state.bulaFiles.length === 0 || skuInputs.some(i => !i.value.trim())) {
-                    return ui.showToast('Por favor, selecione a planilha, as bulas e preencha todos os SKUs.', 'error');
-                }
+                if (!state.spreadsheetFile) return ui.showToast('Por favor, selecione a planilha de produtos.', 'error');
+                if (state.bulaFiles.length === 0) return ui.showToast('Por favor, adicione pelo menos uma bula em PDF.', 'error');
+                if (skuInputs.some(i => !i.value.trim())) return ui.showToast('Por favor, preencha o SKU para cada bula.', 'error');
+                
+                // Preparação da UI
                 ui.setProcessingState(true);
                 dom.resultsSection.classList.remove('hidden');
                 dom.reviewContainer.classList.add('hidden');
@@ -337,17 +433,25 @@
                 dom.disapprovedArea.innerHTML = '';
                 dom.statusMessages.innerHTML = '';
                 state.reviewItems = {};
-                
                 state.fileSkuMappings = {};
-                skuInputs.forEach(input => {
+                
+                skuInputs.forEach((input, index) => {
                     const sku = input.value.trim();
-                    if (sku) state.fileSkuMappings[sku] = { fileIndex: parseInt(input.dataset.fileIndex), fileName: input.dataset.fileName };
+                    if (sku) {
+                        const fileName = state.bulaFiles[index].name;
+                        state.fileSkuMappings[sku] = { fileIndex: index, fileName: fileName };
+                    }
                 });
                 
                 filesForUpload = state.bulaFiles;
                 skusForUpload = Object.keys(state.fileSkuMappings);
             }
 
+            // --- ALTERAÇÕES PARA O CRONÔMETRO ---
+            if (!isReprocessing) {
+                ui.startTimer(); // Inicia o cronômetro
+            }
+            
             const formData = new FormData();
             formData.append('spreadsheet', state.spreadsheetFile);
             filesForUpload.forEach(file => formData.append('bulas', file));
@@ -359,40 +463,34 @@
                     if (type === 'review_item') ui.renderReviewCard(data);
                     if (type === 'error') ui.showToast(data.message, 'error');
                 };
-                
-                if (isReprocessing) {
-                    await apiService.streamRequest('/reprocess-items', formData, onEvent);
-                } else {
-                    await apiService.streamRequest('/process-for-review', formData, onEvent);
-                }
-                
+                const endpoint = isReprocessing ? '/reprocess-items' : '/process-for-review';
+                await apiService.streamRequest(endpoint, formData, onEvent);
                 ui.addStatusMessage(`${isReprocessing ? 'Re' : ''}processamento concluído.`, "success");
                 ui.updateGlobalUI();
-
             } catch (error) {
+                ui.addStatusMessage(`ERRO: ${error.message}`, 'error');
                 ui.showToast(error.message, 'error');
             } finally {
-                if (!isReprocessing) ui.setProcessingState(false);
+                if (!isReprocessing) {
+                    ui.setProcessingState(false);
+                    ui.stopTimer(); // Para o cronômetro e mostra o tempo total
+                }
             }
         }
         
+        // ... (handleItemAction, finalize, reprocessDisapproved - sem alterações)
         function handleItemAction(sku, status) {
             state.reviewItems[sku].status = status;
             const card = document.getElementById(`card-${sku}`);
-            
-            // Salva as edições atuais no estado ANTES de qualquer coisa
             if (status === 'approved') {
                 state.reviewItems[sku].seo_title = card.querySelector('[data-name="seoTitle"]').value;
                 state.reviewItems[sku].meta_description = card.querySelector('[data-name="metaDescription"]').value;
                 state.reviewItems[sku].html_content = card.querySelector('[data-name="htmlContent"]').value;
             }
-
-            // Atualiza a UI do card
             card.querySelector('[data-name="actions"]').classList.add('hidden');
             const statusBadge = card.querySelector('[data-name="statusBadge"]');
             statusBadge.classList.remove('hidden');
             card.classList.remove('border-green-500', 'border-red-500', 'bg-green-50', 'bg-red-50');
-
             if (status === 'approved') {
                 card.classList.add('border-green-500', 'bg-green-50');
                 statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
@@ -401,20 +499,17 @@
                 statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
                 dom.disapprovedArea.appendChild(card);
             }
-            
             ui.updateGlobalUI();
         }
 
         async function finalize(type) {
             const dataToFinalize = Object.values(state.reviewItems).filter(item => item.status === type);
             if (dataToFinalize.length === 0) return ui.showToast(`Nenhum item ${type === 'approved' ? 'aprovado' : 'reprovado'}.`, 'info');
-            
             const formData = new FormData();
             formData.append('spreadsheet', state.spreadsheetFile);
             const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
             const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
             formData.append(jsonKey, JSON.stringify(dataToFinalize));
-            
             try {
                 const result = await apiService.finalize(endpoint, formData);
                 ui.showToast(`Planilha gerada com sucesso!`, 'success');
@@ -435,16 +530,20 @@
             const itemsToReprocess = Object.entries(state.reviewItems)
                 .filter(([_, item]) => item.status === 'disapproved')
                 .map(([sku, _]) => ({ sku, ...state.fileSkuMappings[sku] }));
-            
             if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados.', 'info');
             
+            // Inicia o timer para o reprocessamento também
+            ui.startTimer();
+
             itemsToReprocess.forEach(item => {
                 document.getElementById(`card-${item.sku}`)?.remove();
                 delete state.reviewItems[item.sku];
             });
-            
+            // O `finally` dentro de startProcessing vai parar o timer
             startProcessing(true, itemsToReprocess);
         }
+        
+        // --- INICIALIZAÇÃO ---
         dom.spreadsheetUpload.addEventListener('change', e => handleFileUpload(e, 'spreadsheet'));
         dom.bulasUpload.addEventListener('change', e => handleFileUpload(e, 'bula'));
         dom.processButton.addEventListener('click', () => startProcessing(false));

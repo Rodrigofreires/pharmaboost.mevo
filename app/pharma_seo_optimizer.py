@@ -1,3 +1,5 @@
+# app/pharma_seo_optimizer.py
+
 import re
 from bs4 import BeautifulSoup
 
@@ -5,7 +7,7 @@ class SeoOptimizerAgent:
     """
     Classe de utilidades para o processo de otimização, incluindo a finalização para V-TEX.
     """
-    # Bloco de CSS completo para garantir a identidade visual.
+    # O MEVO_STYLE_BLOCK continua o mesmo, sem alterações.
     MEVO_STYLE_BLOCK = """<style>
     /* --- ESTILO VISUAL MEVOFARMA (COM ESCOPO) --- */
     @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap');
@@ -148,15 +150,20 @@ class SeoOptimizerAgent:
         return cleaned_html
 
     @staticmethod
-    def _finalize_for_vtex(html_content: str) -> str:
+    def _finalize_for_vtex(html_content: str, product_name: str) -> str:
         """
         Garante que o HTML final seja um fragmento único, seguro para a V-TEX.
         Remove tags globais e envolve todo o conteúdo na div pai com o CSS.
+        O 'product_name' é mantido para futuras lógicas, mas a correção de título
+        agora é feita diretamente pelo prompt.
         """
         if not isinstance(html_content, str):
             return ""
 
+        # A lógica de correção de título foi removida daqui, pois agora é
+        # responsabilidade do prompt.
         clean_html = SeoOptimizerAgent._clean_and_correct_html(html_content)
+        
         soup = BeautifulSoup(clean_html, 'html.parser')
 
         for tag in soup.find_all(['html', 'body', 'head', 'header', 'footer']):

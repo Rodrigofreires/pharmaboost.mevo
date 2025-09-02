@@ -7,11 +7,16 @@ from bs4 import BeautifulSoup
 from .pharma_seo_optimizer import SeoOptimizerAgent
 
 # --- Funções Singleton ---
-# (sem alterações)
+# Padrão de projeto para garantir que exista apenas uma instância
+# do PromptManager e do GeminiClient, economizando recursos.
 _prompt_manager = None
 _gemini_client = None
 
 def _get_prompt_manager():
+    """
+    Retorna a instância única do PromptManager.
+    Se ela ainda não existir, cria uma nova.
+    """
     global _prompt_manager
     if _prompt_manager is None:
         from .prompt_manager import PromptManager
@@ -19,6 +24,10 @@ def _get_prompt_manager():
     return _prompt_manager
 
 def _get_gemini_client():
+    """
+    Retorna a instância única do GeminiClient.
+    Se ela ainda não existir, cria uma nova.
+    """
     global _gemini_client
     if _gemini_client is None:
         from .gemini_client import GeminiClient
@@ -28,9 +37,12 @@ def _get_gemini_client():
 # --- Funções dos Agentes ---
 
 def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any]:
-    """AGENTE PRINCIPAL: Tenta gerar o conteúdo completo."""
+    """
+    AGENTE PRINCIPAL: Tenta gerar o conteúdo completo em formato JSON.
+    Utiliza o prompt 'medicamento_generator' para criar o seo_title,
+    meta_description e o html_content a partir da bula.
+    """
     print(f"PIPELINE: Executing Master Generator for '{product_name}'...")
-    # ... (código do agente permanece o mesmo)
     prompt = _get_prompt_manager().render(
         "medicamento_generator",
         product_name=product_name,
@@ -50,7 +62,11 @@ def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[s
         return None
 
 def _run_refiner_agent(product_name: str, product_info: dict, previous_json: dict, qa_feedback: dict) -> Dict[str, Any]:
-    """AGENTE REFINADOR: Tenta corrigir um JSON falhado."""
+    """
+    AGENTE REFINADOR: Tenta corrigir um JSON que falhou na auditoria.
+    Recebe o JSON anterior e o feedback do auditor para gerar uma
+    versão corrigida, usando o prompt 'refinador_qualidade'.
+    """
     print(f"PIPELINE: Executing Refiner Agent for '{product_name}'...")
     prompt = _get_prompt_manager().render(
         "refinador_qualidade",
@@ -70,9 +86,12 @@ def _run_refiner_agent(product_name: str, product_info: dict, previous_json: dic
         return previous_json # Retorna o anterior em caso de falha
 
 def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any]:
-    """AGENTE FALLBACK: Gera um HTML simples como último recurso."""
+    """
+    AGENTE FALLBACK: Gera um HTML simples como último recurso.
+    Caso os agentes principais falhem, este agente usa o prompt 'essentials_generator'
+    para extrair apenas as informações mais críticas e garantir que haja um conteúdo mínimo.
+    """
     print(f"PIPELINE: All attempts failed. Executing Essentials Fallback Agent for '{product_name}'...")
-    # ... (código do agente permanece o mesmo)
     prompt = _get_prompt_manager().render(
         "essentials_generator",
         product_name=product_name,
@@ -85,10 +104,12 @@ def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Di
         "html_content": html_content if len(html_content) > 20 else "<p>Falha na extração de conteúdo essencial.</p>"
     }
 
-
 def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
-    """AGENTE DE QUALIDADE: Audita o JSON gerado."""
-    # ... (código do agente permanece o mesmo)
+    """
+    AGENTE DE QUALIDADE: Audita o JSON gerado com base em regras de SEO.
+    Usa o prompt 'auditor_seo_tecnico' para analisar o JSON e retornar
+    um score e um feedback detalhado sobre a qualidade do conteúdo.
+    """
     print(f"PIPELINE: Executing Master Auditor...")
     prompt = _get_prompt_manager().render(
         "auditor_seo_tecnico",
@@ -107,6 +128,14 @@ def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
 # --- Orquestrador Principal da Pipeline ---
 
 async def run_seo_pipeline_stream(product_type: str, product_name: str, product_info: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    """
+    Orquestra todo o fluxo de geração e otimização de conteúdo.
+    - Executa o agente gerador.
+    - Audita o resultado.
+    - Se o score for baixo, aciona o agente refinador e re-audita.
+    - Se tudo falhar, usa o agente de fallback.
+    - No final, formata o HTML para ser seguro para a V-TEX e envia para revisão.
+    """
     MIN_SCORE_TARGET = 95
     MAX_ATTEMPTS = 2 # 1 tentativa inicial + 1 tentativa de refinamento
 
@@ -145,7 +174,6 @@ async def run_seo_pipeline_stream(product_type: str, product_name: str, product_
             final_score = audit_results.get("seo_score", 0)
 
             # Envia o feedback detalhado para o frontend
-            # ... (código de log do score_breakdown permanece o mesmo)
             score_breakdown = audit_results.get("score_breakdown", {})
             for key, value in score_breakdown.items():
                 if isinstance(value, dict):
@@ -174,8 +202,12 @@ async def run_seo_pipeline_stream(product_type: str, product_name: str, product_
 
         # --- ETAPA FINAL: EMPACOTAMENTO PARA V-TEX ---
         yield await _send_event("log", {"message": "<b>Etapa Final:</b> Empacotando HTML para V-TEX...", "type": "info"})
+        
+        # Passamos o 'product_name' para que a função possa ajustar os títulos
+        # de acordo com a nova regra de SEO.
         final_html_vtex_safe = SeoOptimizerAgent._finalize_for_vtex(
-            current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>")
+            current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>"),
+            product_name
         )
         
         # --- ENVIO PARA REVISÃO HUMANA ---

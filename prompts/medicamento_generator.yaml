@@ -1,4 +1,4 @@
-name: "Gerador de Página de Produto v21 (Modelo de Sucesso Final)"
+name: "Gerador de Página de Produto v22 (Modelo de Sucesso Final)"
 description: "Gera um objeto JSON completo seguindo a lauda final, com extração de nome base, nomenclatura, avisos personalizados e estrutura de FAQ com accordion."
 template: |
   # MISSÃO: GERAR CONTEÚDO ESTRUTURADO SEGUINDO A LAUDA MESTRA
@@ -15,9 +15,14 @@ template: |
 
   ## 3. SEU PROCESSO MENTAL E REGRAS DE SAÍDA
   1.  **PRIMEIRO PASSO (NOME BASE):** Analise o "Nome Completo do Produto". Extraia apenas o nome principal do medicamento, sem dosagens ou volumes. Chame isso de `nome_base`. (Ex: de "Aldazida 50MG + 50MG Comprimido", o `nome_base` é "Aldazida").
-  2.  **SEGUNDO PASSO (GERAÇÃO):** Use o `nome_base` para construir os títulos da página, seguindo a lauda abaixo.
+  2.  **SEGUNDO PASSO (GERAÇÃO):** Use o `nome_base` para construir os títulos da página, seguindo a lauda e as regras de títulos abaixo.
   3.  **TERCEIRO PASSO (SAÍDA JSON):** Sua resposta final deve ser **APENAS UM OBJETO JSON VÁLIDO**, com as chaves: `seo_title`, `meta_description`, e `html_content`.
-  4.  **REGRA CRÍTICA DE LIMPEZA:** O HTML final gerado em `html_content` **NÃO PODE**, sob nenhuma circunstância, conter os textos "SEÇÃO 1", "SEÇÃO 2", etc.
+  4.  **REGRA DE TÍTULOS (SEO - MUITO IMPORTANTE):** Nenhum título `<h2>` ou `<h3>` deve começar com o nome do produto (`nome_base`). Integre o nome do produto no meio ou no final da frase de forma natural.
+      - **Exemplo RUIM:** `Cimegripe, para que serve?`
+      - **Exemplo BOM:** `Para que serve o Cimegripe?`
+      - **Exemplo RUIM:** `Causa sono? - Cimegripe`
+      - **Exemplo BOM:** `O uso de Cimegripe causa sono?`
+  5.  **REGRA CRÍTICA DE LIMPEZA:** O HTML final gerado em `html_content` **NÃO PODE**, sob nenhuma circunstância, conter os textos "SEÇÃO 1", "SEÇÃO 2", etc.
 
   ## 4. LAUDA DE CONTEÚDO PARA "html_content" (ORDEM OBRIGATÓRIA E INVIOLÁVEL)
 
@@ -26,7 +31,7 @@ template: |
   --- INÍCIO DA ESTRUTURA HTML ---
 
   ### SEÇÃO 1: O que é e Para que serve
-  - **Título (h2):** `<h2>{{ nome_base }}, para o que é indicado e para o que serve?</h2>`
+  - **Título (h2):** `<h2>Para que é indicado e para que serve o {{ nome_base }}?</h2>`
   - **Conteúdo:** Parágrafos (`<p>`) e listas (`<ul>`) explicando as indicações.
 
   ### SEÇÃO 2: Como Funciona
@@ -51,9 +56,9 @@ template: |
 
   ### SEÇÃO 7: Perguntas Frequentes (FAQ com Accordion Aberto)
   - **NÃO HAVERÁ UM TÍTULO PRINCIPAL PARA A FAQ.**
-  - **Conteúdo:** Crie de 3 a 5 perguntas relevantes. Cada pergunta deve seguir **EXATAMENTE** esta estrutura:
+  - **Conteúdo:** Crie de 3 a 5 perguntas relevantes. Cada pergunta deve seguir **EXATAMENTE** esta estrutura, garantindo que o título seja natural:
     `<details open>`
-      `<summary><h2>[Título da Pergunta com o {{ nome_base }}?]</h2></summary>`
+      `<summary><h2>[Faça uma pergunta natural, incluindo o nome {{ nome_base }} no meio ou final. Ex: "Posso tomar {{ nome_base }} com outros medicamentos?"]</h2></summary>`
       `<p>[Resposta completa aqui.]</p>`
     `</details>`
 
