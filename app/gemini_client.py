@@ -1,8 +1,8 @@
-# app/gemini_client.py (Versão Definitiva - Corrigida com base na documentação)
+# app/gemini_client.py (Versão Robusta)
 import os
 from config import settings
 from google import genai
-from google.genai import types
+from google.api_core import exceptions
 
 class GeminiClient:
     """
@@ -18,22 +18,18 @@ class GeminiClient:
         if not api_key:
             raise ValueError("A variável de ambiente GEMINI_API_KEY não foi encontrada. Verifique seu arquivo .env.")
         
-        # Padrão da documentação mais recente
         self.client = genai.Client(api_key=api_key)
 
     def execute_prompt(self, prompt_text: str, **kwargs) -> str:
         """
         Envia um prompt para a API Gemini e retorna a resposta de texto.
+        Agora, propaga exceções da API para tratamento superior.
         """
         try:
             model_name = settings.DEFAULT_MODEL
-            
-            config = types.GenerateContentConfig(**kwargs) if kwargs else None
-
             response = self.client.models.generate_content(
-                model=f'models/{model_name}',
+                model=model_name,
                 contents=prompt_text,
-                config=config  
             )
             
             if response and hasattr(response, 'text') and response.text:
@@ -42,6 +38,11 @@ class GeminiClient:
                 print("API Gemini retornou uma resposta vazia.")
                 return '{"error": "A API do Gemini retornou uma resposta vazia ou nula."}'
 
+        except exceptions.GoogleAPICallError as e:
+            # Propaga exceções da API para que a camada de use_cases possa tratá-las
+            print(f"Erro na API Gemini detectado no cliente: {e.message}")
+            raise e # Re-lança a exceção específica da API
         except Exception as e:
-            print(f"Erro ao chamar a API Gemini: {e}")
-            return f'{{"error": "Ocorreu um erro ao chamar a API Gemini: {str(e)}"}}'
+            print(f"Erro inesperado no cliente Gemini: {e}")
+            # Retorna um JSON de erro formatado para erros não relacionados à API
+            return f'{{"error": "Ocorreu um erro inesperado no cliente: {str(e)}"}}'

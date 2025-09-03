@@ -1,22 +1,20 @@
+# app/use_cases.py (Versão Final com Tratamento de Falhas)
 import json
 from typing import Dict, Any, AsyncGenerator
 import asyncio
 import traceback
+import time
+import re
 from bs4 import BeautifulSoup
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 
 from .pharma_seo_optimizer import SeoOptimizerAgent
 
 # --- Funções Singleton ---
-# Padrão de projeto para garantir que exista apenas uma instância
-# do PromptManager e do GeminiClient, economizando recursos.
 _prompt_manager = None
 _gemini_client = None
 
 def _get_prompt_manager():
-    """
-    Retorna a instância única do PromptManager.
-    Se ela ainda não existir, cria uma nova.
-    """
     global _prompt_manager
     if _prompt_manager is None:
         from .prompt_manager import PromptManager
@@ -24,120 +22,94 @@ def _get_prompt_manager():
     return _prompt_manager
 
 def _get_gemini_client():
-    """
-    Retorna a instância única do GeminiClient.
-    Se ela ainda não existir, cria uma nova.
-    """
     global _gemini_client
     if _gemini_client is None:
         from .gemini_client import GeminiClient
         _gemini_client = GeminiClient()
     return _gemini_client
 
-# --- Funções dos Agentes ---
+# --- Funções Auxiliares Robustas ---
+def _extract_json_from_string(text: str) -> Dict[str, Any]:
+    if not text: return None
+    json_match = re.search(r'```json\s*(\{.*?\})\s*```|(\{.*?\})', text, re.DOTALL)
+    if json_match:
+        json_str = json_match.group(1) or json_match.group(2)
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Falha ao decodificar JSON extraído: {e}")
+            return None
+    print("ERROR: Nenhum bloco JSON válido encontrado na resposta da IA.")
+    return None
 
-def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any]:
-    """
-    AGENTE PRINCIPAL: Tenta gerar o conteúdo completo em formato JSON.
-    Utiliza o prompt 'medicamento_generator' para criar o seo_title,
-    meta_description e o html_content a partir da bula.
-    """
+def _execute_prompt_with_backoff(prompt: str, max_retries: int = 5) -> str | None:
+    wait_time = 2
+    for attempt in range(max_retries):
+        try:
+            return _get_gemini_client().execute_prompt(prompt)
+        except (ResourceExhausted, ServiceUnavailable) as e:
+            error_type = "Rate limit (429)" if isinstance(e, ResourceExhausted) else "Servidor sobrecarregado (503)"
+            print(f"WARN: {error_type} (tentativa {attempt + 1}/{max_retries}). Aguardando {wait_time}s...")
+            time.sleep(wait_time)
+            wait_time = min(wait_time * 2, 60)
+        except Exception as e:
+            print(f"ERROR: Erro irrecuperável na chamada da API, não haverá nova tentativa: {e}")
+            return None
+    print("ERROR: Limite máximo de tentativas atingido. A API continua indisponível.")
+    return None
+
+# --- Funções dos Agentes (com checagem de falha) ---
+def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any] | None:
     print(f"PIPELINE: Executing Master Generator for '{product_name}'...")
-    prompt = _get_prompt_manager().render(
-        "medicamento_generator",
-        product_name=product_name,
-        product_info=product_info.get("bula_text", "")
-    )
-    response_raw = _get_gemini_client().execute_prompt(prompt)
-    try:
-        json_start = response_raw.find('{')
-        json_end = response_raw.rfind('}') + 1
-        if json_start == -1: raise ValueError("JSON not found.")
-        data = json.loads(response_raw[json_start:json_end])
-        if not data.get("html_content") or len(data["html_content"]) < 50:
-            raise ValueError("HTML content too short.")
-        return data
-    except Exception as e:
-        print(f"ERROR: Master Generator failed: {e}")
+    prompt = _get_prompt_manager().render("medicamento_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
+    response_raw = _execute_prompt_with_backoff(prompt)
+    if response_raw is None:
+        print(f"ERROR: Master Generator não recebeu resposta da API.")
         return None
+    data = _extract_json_from_string(response_raw)
+    if data and data.get("html_content") and len(data["html_content"]) > 50:
+        return data
+    print(f"ERROR: Master Generator falhou na extração do JSON ou gerou conteúdo muito curto.")
+    return None
 
 def _run_refiner_agent(product_name: str, product_info: dict, previous_json: dict, qa_feedback: dict) -> Dict[str, Any]:
-    """
-    AGENTE REFINADOR: Tenta corrigir um JSON que falhou na auditoria.
-    Recebe o JSON anterior e o feedback do auditor para gerar uma
-    versão corrigida, usando o prompt 'refinador_qualidade'.
-    """
     print(f"PIPELINE: Executing Refiner Agent for '{product_name}'...")
-    prompt = _get_prompt_manager().render(
-        "refinador_qualidade",
-        product_name=product_name,
-        bula_text=product_info.get("bula_text", ""),
-        previous_json=json.dumps(previous_json, ensure_ascii=False),
-        qa_feedback=json.dumps(qa_feedback, ensure_ascii=False)
-    )
-    response_raw = _get_gemini_client().execute_prompt(prompt)
-    try:
-        json_start = response_raw.find('{')
-        json_end = response_raw.rfind('}') + 1
-        if json_start == -1: raise ValueError("JSON not found.")
-        return json.loads(response_raw[json_start:json_end])
-    except Exception as e:
-        print(f"ERROR: Refiner Agent failed: {e}")
-        return previous_json # Retorna o anterior em caso de falha
+    prompt = _get_prompt_manager().render("refinador_qualidade", product_name=product_name, bula_text=product_info.get("bula_text", ""), previous_json=json.dumps(previous_json, ensure_ascii=False), qa_feedback=json.dumps(qa_feedback, ensure_ascii=False))
+    response_raw = _execute_prompt_with_backoff(prompt)
+    if response_raw is None:
+        print(f"ERROR: Refiner Agent não recebeu resposta da API. Retornando JSON anterior.")
+        return previous_json
+    data = _extract_json_from_string(response_raw)
+    if data:
+        return data
+    print(f"ERROR: Refiner Agent falhou na extração do JSON. Retornando JSON anterior.")
+    return previous_json
 
 def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any]:
-    """
-    AGENTE FALLBACK: Gera um HTML simples como último recurso.
-    Caso os agentes principais falhem, este agente usa o prompt 'essentials_generator'
-    para extrair apenas as informações mais críticas e garantir que haja um conteúdo mínimo.
-    """
     print(f"PIPELINE: All attempts failed. Executing Essentials Fallback Agent for '{product_name}'...")
-    prompt = _get_prompt_manager().render(
-        "essentials_generator",
-        product_name=product_name,
-        product_info=product_info.get("bula_text", "")
-    )
-    html_content = _get_gemini_client().execute_prompt(prompt)
-    return {
-        "seo_title": f"{product_name} - Bula, Preço e Para Que Serve",
-        "meta_description": f"Encontre aqui informações essenciais sobre {product_name}: para que serve, como funciona e como usar.",
-        "html_content": html_content if len(html_content) > 20 else "<p>Falha na extração de conteúdo essencial.</p>"
-    }
+    prompt = _get_prompt_manager().render("essentials_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
+    html_content = _execute_prompt_with_backoff(prompt)
+    if html_content is None:
+        html_content = "<p>Falha crítica na geração de conteúdo.</p>"
+    return {"seo_title": f"{product_name} - Bula, Preço e Para Que Serve", "meta_description": f"Encontre aqui informações essenciais sobre {product_name}: para que serve, como funciona e como usar.", "html_content": html_content if len(html_content) > 20 else "<p>Falha na extração de conteúdo essencial.</p>"}
 
 def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
-    """
-    AGENTE DE QUALIDADE: Audita o JSON gerado com base em regras de SEO.
-    Usa o prompt 'auditor_seo_tecnico' para analisar o JSON e retornar
-    um score e um feedback detalhado sobre a qualidade do conteúdo.
-    """
     print(f"PIPELINE: Executing Master Auditor...")
-    prompt = _get_prompt_manager().render(
-        "auditor_seo_tecnico",
-        full_page_json=json.dumps(full_page_json, ensure_ascii=False)
-    )
-    response_raw = _get_gemini_client().execute_prompt(prompt)
-    try:
-        json_start = response_raw.find('{')
-        json_end = response_raw.rfind('}') + 1
-        if json_start == -1: raise ValueError("JSON not found in auditor response.")
-        return json.loads(response_raw[json_start:json_end])
-    except Exception as e:
-        print(f"ERROR: Auditor Agent failed: {e}")
-        return {"seo_score": 0, "score_breakdown": {"error": {"feedback": "Falha crítica na auditoria."}}}
+    prompt = _get_prompt_manager().render("auditor_seo_tecnico", full_page_json=json.dumps(full_page_json, ensure_ascii=False))
+    response_raw = _execute_prompt_with_backoff(prompt)
+    if response_raw is None:
+        print(f"ERROR: Auditor Agent não recebeu resposta da API.")
+        return {"seo_score": 0, "score_breakdown": {"error": {"feedback": "Falha crítica na auditoria - sem resposta da API."}}}
+    data = _extract_json_from_string(response_raw)
+    if data:
+        return data
+    print(f"ERROR: Auditor Agent falhou na extração do JSON.")
+    return {"seo_score": 0, "score_breakdown": {"error": {"feedback": "Falha crítica na auditoria - JSON inválido."}}}
 
 # --- Orquestrador Principal da Pipeline ---
-
 async def run_seo_pipeline_stream(product_type: str, product_name: str, product_info: Dict[str, Any]) -> AsyncGenerator[str, None]:
-    """
-    Orquestra todo o fluxo de geração e otimização de conteúdo.
-    - Executa o agente gerador.
-    - Audita o resultado.
-    - Se o score for baixo, aciona o agente refinador e re-audita.
-    - Se tudo falhar, usa o agente de fallback.
-    - No final, formata o HTML para ser seguro para a V-TEX e envia para revisão.
-    """
     MIN_SCORE_TARGET = 95
-    MAX_ATTEMPTS = 2 # 1 tentativa inicial + 1 tentativa de refinamento
+    MAX_ATTEMPTS = 2
 
     async def _send_event(event_type: str, data: dict) -> str:
         await asyncio.sleep(0.05)
@@ -147,70 +119,54 @@ async def run_seo_pipeline_stream(product_type: str, product_name: str, product_
         bula_text = product_info.get("bula_text", "")
         if not bula_text: raise ValueError("Texto da bula não fornecido.")
 
-        yield await _send_event("log", {"message": "<b>Iniciando Sistema de Geração Inteligente...</b>", "type": "info"})
+        yield await _send_event("log", {"message": f"<b>Iniciando Geração para '{product_name}'...</b>", "type": "info"})
         
         current_content_data = None
         final_score = 0
+        audit_results = {}
 
-        # --- CICLO DE GERAÇÃO E REFINAMENTO ---
         for attempt in range(1, MAX_ATTEMPTS + 1):
             yield await _send_event("log", {"message": f"<b>--- Ciclo de Qualidade {attempt}/{MAX_ATTEMPTS} ---</b>", "type": "info"})
             
-            # Tenta gerar ou refinar o conteúdo
             if attempt == 1:
-                yield await _send_event("log", {"message": "<b>Etapa 1:</b> Agente Mestre criando conteúdo...", "type": "info"})
-                current_content_data = _run_master_generator_agent(product_name, product_info)
+                yield await _send_event("log", {"message": "<b>Etapa 1:</b> Agente Mestre (Master Generator) criando conteúdo...", "type": "info"})
+                current_content_data = await asyncio.to_thread(_run_master_generator_agent, product_name, product_info)
             else:
-                yield await _send_event("log", {"message": "⚠️ Score abaixo da meta. Acionando <b>Agente Refinador</b>...", "type": "warning"})
-                current_content_data = _run_refiner_agent(product_name, product_info, current_content_data, audit_results)
+                yield await _send_event("log", {"message": "⚠️ Score baixo. Acionando <b>Agente Refinador (Refiner Agent)</b>...", "type": "warning"})
+                current_content_data = await asyncio.to_thread(_run_refiner_agent, product_name, product_info, current_content_data, audit_results)
 
-            # Se a geração/refinamento falhar catastroficamente, sai do ciclo para o fallback
             if current_content_data is None:
+                yield await _send_event("log", {"message": "❌ Falha crítica do Agente. Acionando plano de contingência.", "type": "error"})
                 break
             
-            # Audita o resultado da tentativa atual
-            yield await _send_event("log", {"message": "<b>Etapa 2:</b> Agente de Qualidade inspecionando...", "type": "info"})
-            audit_results = _run_seo_auditor_agent(current_content_data)
+            yield await _send_event("log", {"message": "<b>Etapa 2:</b> Agente de Qualidade (Auditor) inspecionando...", "type": "info"})
+            audit_results = await asyncio.to_thread(_run_seo_auditor_agent, current_content_data)
             final_score = audit_results.get("seo_score", 0)
 
-            # Envia o feedback detalhado para o frontend
             score_breakdown = audit_results.get("score_breakdown", {})
             for key, value in score_breakdown.items():
                 if isinstance(value, dict):
                     feedback = value.get("feedback", "N/A")
-                    status_emoji = "✅" if value.get("score") == value.get("max_score") else "⚠️"
+                    status_emoji = "✅" if value.get("score", 0) == value.get("max_score", -1) else "⚠️"
                     yield await _send_event("log", {"message": f"{status_emoji} [{key.replace('_', ' ').title()}]: {feedback}", "type": "success" if status_emoji == "✅" else "warning"})
-
 
             yield await _send_event("log", {"message": f"<b>Score da Tentativa {attempt}: {final_score}/100</b>", "type": "info"})
             
-            # Se atingir a meta, termina o ciclo
             if final_score >= MIN_SCORE_TARGET:
                 yield await _send_event("log", {"message": "<b>Qualidade Aprovada!</b>", "type": "success"})
                 break
 
-        # --- REDE DE SEGURANÇA (FALLBACK) ---
         if current_content_data is None:
-            yield await _send_event("log", {"message": "⚠️ <b>Aviso:</b> Geração e Refinamento falharam. Acionando Agente de Extração Essencial...", "type": "warning"})
-            current_content_data = _run_essentials_generator_agent(product_name, product_info)
-            # Re-audita o conteúdo do fallback para ter um score final
-            audit_results = _run_seo_auditor_agent(current_content_data)
+            yield await _send_event("log", {"message": "⚠️ <b>Aviso:</b> Geração principal falhou. Acionando Agente Essencial (Fallback)...", "type": "warning"})
+            current_content_data = await asyncio.to_thread(_run_essentials_generator_agent, product_name, product_info)
+            audit_results = await asyncio.to_thread(_run_seo_auditor_agent, current_content_data)
             final_score = audit_results.get("seo_score", 0)
             yield await _send_event("log", {"message": f"<b>Score do Conteúdo Essencial: {final_score}/100</b>", "type": "info"})
 
-        yield await _send_event("log", {"message": f"<b>Ciclos de qualidade finalizados. Score máximo atingido: {final_score}/100.</b>", "type": "info"})
+        yield await _send_event("log", {"message": f"<b>Ciclos finalizados para '{product_name}'. Score máximo: {final_score}/100.</b>", "type": "info"})
 
-        # --- ETAPA FINAL: EMPACOTAMENTO PARA V-TEX ---
-        yield await _send_event("log", {"message": "<b>Etapa Final:</b> Empacotando HTML para V-TEX...", "type": "info"})
+        final_html_vtex_safe = SeoOptimizerAgent._finalize_for_vtex(current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>"), product_name)
         
-        # Passamos o 'product_name' para que a função possa ajustar os títulos
-        # de acordo com a nova regra de SEO.
-        final_html_vtex_safe = SeoOptimizerAgent._finalize_for_vtex(
-            current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>"),
-            product_name
-        )
-        
-        # --- ENVIO PARA REVISÃO HUMANA ---
         final_data_for_review = {
             "final_score": final_score,
             "final_content": final_html_vtex_safe,
@@ -221,4 +177,4 @@ async def run_seo_pipeline_stream(product_type: str, product_name: str, product_
 
     except Exception as e:
         traceback.print_exc()
-        yield await _send_event("error", {"message": f"Erro crítico na pipeline: {str(e)}", "type": "error"})
+        yield await _send_event("error", {"message": f"Erro crítico na pipeline para '{product_name}': {str(e)}", "type": "error"})

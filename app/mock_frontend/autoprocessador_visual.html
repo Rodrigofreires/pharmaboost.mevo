@@ -96,9 +96,8 @@
                 <h3 class="text-2xl font-bold text-red-600 text-center">Itens Reprovados</h3>
                 <div id="disapproved-area" class="space-y-8"></div>
                 <div class="mt-8 text-center flex flex-col md:flex-row gap-4 justify-center">
-                    <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600 flex items-center justify-center">
-                        <span id="reprocess-button-text">Reprocessar Reprovados com IA</span>
-                        <div id="reprocess-loader" class="loader hidden ml-3"></div>
+                    <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600">
+                        Reprocessar Reprovados com IA
                     </button>
                     <button id="finalize-disapproved-button" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700">
                         Gerar Planilha de Reprovados
@@ -171,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
         disapprovedContainer: document.getElementById('disapproved-container'),
         disapprovedArea: document.getElementById('disapproved-area'),
         reprocessButton: document.getElementById('reprocess-button'),
-        reprocessButtonText: document.getElementById('reprocess-button-text'), // Adicionado
-        reprocessLoader: document.getElementById('reprocess-loader'),         // Adicionado
         finalizeDisapprovedButton: document.getElementById('finalize-disapproved-button'),
         toastContainer: document.getElementById('toast-container'),
     };
@@ -399,20 +396,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // FUNÇÃO DE REPROCESSAMENTO ATUALIZADA
     async function handleReprocess() {
         const itemsToReprocess = Object.values(state.reviewItems).filter(item => item.status === 'disapproved');
         if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados para reprocessar.', 'error');
         if (!state.catalogFile) return ui.showToast('O arquivo de catálogo é necessário. Selecione-o na Etapa 1.', 'error');
         
-        // Ativa o estado de processamento
-        dom.reprocessButton.disabled = true;
-        dom.reprocessButtonText.textContent = 'Reprocessando...';
-        dom.reprocessLoader.classList.remove('hidden');
-        
         dom.logSection.classList.remove('hidden');
-        // Limpa o log se quiser focar apenas no reprocessamento
-        // dom.statusLog.innerHTML = ''; 
+        dom.statusLog.innerHTML = '';
         ui.addLogMessage(`<b>Iniciando reprocessamento para ${itemsToReprocess.length} item(ns)...</b>`);
         timer.start();
         
@@ -427,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (event === 'done') {
                     const sku = data['_EANSKU'];
                     ui.addLogMessage(`Conteúdo regenerado para SKU ${sku}. Movido para revisão.`, 'success');
-                    ui.renderReviewCard(data); // Move o card de volta para a área de revisão
+                    ui.renderReviewCard(data);
                 }
             });
             ui.addLogMessage("<b>Reprocessamento concluído!</b>", "success");
@@ -435,10 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.showToast(error.message, 'error');
             ui.addLogMessage(`<b class="text-red-400">ERRO:</b> ${error.message}`, 'error');
         } finally {
-            // Desativa o estado de processamento
-            dom.reprocessButton.disabled = false;
-            dom.reprocessButtonText.textContent = 'Reprocessar Reprovados com IA';
-            dom.reprocessLoader.classList.add('hidden');
             timer.stop();
             ui.updateGlobalUI();
         }
