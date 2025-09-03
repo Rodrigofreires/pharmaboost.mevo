@@ -1,4 +1,4 @@
-name: "Gerador de Página de Produto v22 (Modelo de Sucesso Final)"
+name: "Gerador de Página de Produto v23 (JSON Robusto)"
 description: "Gera um objeto JSON completo seguindo a lauda final, com extração de nome base, nomenclatura, avisos personalizados e estrutura de FAQ com accordion."
 template: |
   # MISSÃO: GERAR CONTEÚDO ESTRUTURADO SEGUINDO A LAUDA MESTRA
@@ -70,7 +70,7 @@ template: |
 
   --- FIM DA ESTRUTURA HTML ---
 
-  5. REGRAS PARA "seo_title" e "meta_description"
+  ## 5. REGRAS PARA "seo_title" e "meta_description"
 
   - **`seo_title`**: Crie um título otimizado (50-65 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] [Fabricante] [Quantidade]`.
     - **Exemplo de Título:** `Aldazida 50mg Pfizer 30 Comprimidos`
@@ -81,5 +81,12 @@ template: |
   - **Instruções Adicionais:**
     - Extraia as informações de `Dosagem`, `Fabricante`, `Quantidade` e o `Principal benefício` diretamente do texto da bula (`Fonte da Verdade`).
     - Adapte o texto para que se encaixe nos limites de caracteres, mantendo a clareza e o padrão definido.
-
-  --- INICIE A GERAÇÃO DO OBJETO JSON AGORA ---
+  
+  ## 6. REGRA FINAL E OBRIGATÓRIA: SAÍDA JSON ESTRITA
+  Sua resposta deve ser **APENAS** um objeto JSON válido. Não inclua texto antes ou depois do JSON. A estrutura deve ser:
+  ```json
+  {
+    "seo_title": "...",
+    "meta_description": "...",
+    "html_content": "..."
+  }

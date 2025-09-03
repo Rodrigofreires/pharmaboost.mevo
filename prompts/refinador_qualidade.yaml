@@ -1,4 +1,4 @@
-name: "Agente Refinador de Qualidade v3 (Foco em Correção de SEO)"
+name: "Agente Refinador de Qualidade v4 (Foco em Correção de SEO)"
 description: "Recebe um JSON de produto falhado e o feedback do auditor, e reconstrói um novo JSON que corrija os erros, com foco especial em SEO de varejo."
 template: |
   # MISSÃO: CORRIGIR E RECONSTRUIR UM PRODUTO FALHADO
@@ -21,16 +21,21 @@ template: |
   {{ qa_feedback }}
   ---
 
-  3. SUA TAREFA
+  ## 3. SUA TAREFA (SIGA COM PRECISÃO CIRÚRGICA)
   1.  **Analise o `qa_feedback`** para entender quais seções do `previous_json` estão com pontuação baixa ou erradas.
-  2.  **Use a `Bula Original`** como fonte da verdade para obter as informações corretas.
-  3.  **Reconstrua um NOVO OBJETO JSON COMPLETO**. Sua missão é cirúrgica:
+  2.  **FOCO PRINCIPAL EM SEO:** Preste atenção especial aos erros em `seo_title` e `meta_description`.
+      - **Se o `seo_title` for muito curto ou muito longo:** Reescreva-o para ter **entre 50 e 65 caracteres**, mantendo o padrão `[Produto] [Dosagem] [Fabricante] [Quantidade]`. Seja criativo para adicionar ou remover palavras (como a forma farmacêutica) para atingir o comprimento ideal.
+      - **Se a `meta_description` estiver fora do tamanho:** Reescreva-a para ter **entre 120 e 165 caracteres**.
+      - **Se a `meta_description` não terminar com a chamada para a loja:** Garanta que a versão final **termine exatamente com 'na Mevo Farma.'**.
+      - **Se a `meta_description` contiver a palavra 'bula'**: Remova-a.
+  3.  **Use a `Bula Original`** como fonte da verdade para obter as informações corretas.
+  4.  **Reconstrua um NOVO OBJETO JSON COMPLETO**. Sua missão é cirúrgica:
       - **Corrija APENAS os erros apontados** no `qa_feedback`.
       - **Preserve as seções do `previous_json` que já estavam corretas** e com boa pontuação.
       - Garanta que o novo JSON segue perfeitamente a "Lauda Mestra".
 
   ## 4. REGRAS DE SAÍDA
-  - Sua resposta deve ser **APENAS o novo objeto JSON corrigido**.
-  - Não inclua ```json, comentários ou qualquer outro texto.
+  - Sua resposta deve ser **APENAS o novo objeto JSON corrigido e completo**.
+  - Não inclua ```json, comentários ou qualquer outro texto. A saída deve ser um JSON puro e válido.
 
   --- INICIE A RECONSTRUÇÃO DO OBJETO JSON AGORA ---

@@ -37,12 +37,16 @@ CHUNK_SIZE = 500
 async def get_bula_text(ean_sku: str, link_bula: str) -> str:
     os.makedirs('bulas_temp', exist_ok=True)
     output_path = f"bulas_temp/{ean_sku}.pdf"
-    if not os.path.exists(output_path):
-        await asyncio.to_thread(gdown.download, str(link_bula), output_path, quiet=True, fuzzy=True)
+    try:
+        if not os.path.exists(output_path):
+            await asyncio.to_thread(gdown.download, str(link_bula), output_path, quiet=True, fuzzy=True)
 
-    with open(output_path, 'rb') as f:
-        file_bytes = f.read()
-        return "".join(page.extract_text() for page in PdfReader(io.BytesIO(file_bytes)).pages if page.extract_text())
+        with open(output_path, 'rb') as f:
+            file_bytes = f.read()
+            return "".join(page.extract_text() for page in PdfReader(io.BytesIO(file_bytes)).pages if page.extract_text())
+    finally:
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
 def safe_update_and_preserve_data(df_original: pd.DataFrame, df_updates: pd.DataFrame, key_column: str) -> pd.DataFrame:
     df_original[key_column] = df_original[key_column].astype(str)

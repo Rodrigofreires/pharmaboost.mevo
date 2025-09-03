@@ -1,4 +1,4 @@
-# app/use_cases.py (Versão Final com Tratamento de Falhas)
+# app/use_cases.py (Versão Final com Tratamento de Falhas Melhorado)
 import json
 from typing import Dict, Any, AsyncGenerator
 import asyncio
@@ -30,7 +30,10 @@ def _get_gemini_client():
 
 # --- Funções Auxiliares Robustas ---
 def _extract_json_from_string(text: str) -> Dict[str, Any]:
-    if not text: return None
+    if not text:
+        print("ERROR: Texto de entrada para extração de JSON está vazio.")
+        return None
+    # Regex aprimorado para ser mais flexível com espaços em branco e newlines
     json_match = re.search(r'```json\s*(\{.*?\})\s*```|(\{.*?\})', text, re.DOTALL)
     if json_match:
         json_str = json_match.group(1) or json_match.group(2)
@@ -38,6 +41,7 @@ def _extract_json_from_string(text: str) -> Dict[str, Any]:
             return json.loads(json_str)
         except json.JSONDecodeError as e:
             print(f"ERROR: Falha ao decodificar JSON extraído: {e}")
+            print(f"JSON com erro: {json_str[:500]}...") # Loga o início do JSON problemático
             return None
     print("ERROR: Nenhum bloco JSON válido encontrado na resposta da IA.")
     return None
@@ -54,6 +58,7 @@ def _execute_prompt_with_backoff(prompt: str, max_retries: int = 5) -> str | Non
             wait_time = min(wait_time * 2, 60)
         except Exception as e:
             print(f"ERROR: Erro irrecuperável na chamada da API, não haverá nova tentativa: {e}")
+            traceback.print_exc() # Log completo do traceback para depuração
             return None
     print("ERROR: Limite máximo de tentativas atingido. A API continua indisponível.")
     return None
@@ -89,9 +94,18 @@ def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Di
     print(f"PIPELINE: All attempts failed. Executing Essentials Fallback Agent for '{product_name}'...")
     prompt = _get_prompt_manager().render("essentials_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
     html_content = _execute_prompt_with_backoff(prompt)
-    if html_content is None:
+    if html_content is None or len(html_content) < 20:
         html_content = "<p>Falha crítica na geração de conteúdo.</p>"
-    return {"seo_title": f"{product_name} - Bula, Preço e Para Que Serve", "meta_description": f"Encontre aqui informações essenciais sobre {product_name}: para que serve, como funciona e como usar.", "html_content": html_content if len(html_content) > 20 else "<p>Falha na extração de conteúdo essencial.</p>"}
+
+    # Gera um título e descrição SEO básicos para o conteúdo essencial
+    seo_title = f"{product_name} - Para que serve e como usar"
+    meta_description = f"Encontre aqui informações essenciais sobre {product_name}: para que serve, como funciona, como usar e mais. Consulte a bula e um profissional de saúde."
+
+    return {
+        "seo_title": seo_title,
+        "meta_description": meta_description,
+        "html_content": html_content
+    }
 
 def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
     print(f"PIPELINE: Executing Master Auditor...")
