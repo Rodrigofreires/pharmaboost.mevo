@@ -1,0 +1,41 @@
+services:
+  # Serviço 1: A Fila (Redis)
+  redis:
+    image: "redis:latest"
+    container_name: pharmaboost_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Serviço 2: A API (FastAPI/Uvicorn)
+  api:
+    build: .
+    container_name: pharmaboost_api
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "uvicorn api_automatizada:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - redis
+
+  # Serviço 3: Os Workers (Celery)
+  worker:
+    build: .
+    # Otimização: Usar threads para melhor concorrência em tarefas de I/O
+    command: >
+      sh -c "celery -A worker worker -l info --pool=threads --concurrency=4 -O broker_connection_retry_on_startup=true"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - redis
+    restart: always # <-- ADIÇÃO RECOMENDADA
+
+volumes:
+  redis_data:

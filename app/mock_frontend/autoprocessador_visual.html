@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEVO - Autoprocessador de Conteúdo v10.0</title>
+    <title>MEVO - Autoprocessador de Conteúdo v13.0 (Revisão Completa)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,6 +18,7 @@
         .toast.show { transform: translateX(0); opacity: 1; }
         .toast-success { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
         .toast-error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .progress-bar-fill { transition: width 0.5s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -26,11 +27,11 @@
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-sky-600">Autoprocessador de Conteúdo MEVO</h1>
-            <p class="text-gray-600 mt-2">Gere rascunhos em lote e revise-os para aprovação final de forma eficiente.</p>
+            <p class="text-gray-600 mt-2">Gere rascunhos em lote de forma paralela e otimizada.</p>
         </header>
 
         <main id="batch-section" class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8 mb-10">
-            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 1: Gerar Rascunhos em Lote</h2>
+            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 1: Iniciar Processamento</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h3 class="text-xl font-semibold mb-2 text-gray-700">A. Planilha Catálogo Geral (.xlsx)</h3>
@@ -40,7 +41,7 @@
                             <span id="catalog-filename" class="text-gray-600 font-medium">Selecione o catálogo</span>
                         </div>
                     </label>
-                    <input type="file" id="catalog-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <input type="file" id="catalog-upload" class="hidden" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                 </div>
                 <div>
                     <h3 class="text-xl font-semibold mb-2 text-gray-700">B. Planilha de Itens a Processar (.xlsx)</h3>
@@ -50,40 +51,33 @@
                             <span id="items-filename" class="text-gray-600 font-medium">Selecione os itens</span>
                         </div>
                     </label>
-                    <input type="file" id="items-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <input type="file" id="items-upload" class="hidden" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                 </div>
             </div>
             <div class="text-center pt-8">
-                <button id="generate-draft-button" class="w-full md:w-auto bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 disabled:bg-gray-400 flex items-center justify-center mx-auto">
-                    <span id="button-text">Gerar Rascunho para Revisão</span>
+                <button id="start-batch-button" class="w-full md:w-auto bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 disabled:bg-gray-400 flex items-center justify-center mx-auto">
+                    <span id="button-text">Iniciar Processamento Paralelo</span>
                     <div id="button-loader" class="loader hidden ml-3"></div>
                 </button>
             </div>
+             <div id="progress-section" class="hidden pt-4 space-y-4">
+                <div class="flex justify-between items-center mb-1">
+                    <h3 class="text-lg font-semibold text-gray-700">Progresso do Lote</h3>
+                    <span id="progress-text" class="text-lg font-semibold text-sky-600">0 / 0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="progress-bar" class="bg-sky-600 h-4 rounded-full progress-bar-fill" style="width: 0%"></div>
+                </div>
+                 <div id="log-section" class="mt-2">
+                    <div id="status-log" class="font-mono text-sm text-white bg-gray-800 p-4 rounded-lg max-h-40 overflow-y-auto"></div>
+                </div>
+            </div>
         </main>
         
-        <section id="review-section" class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8">
+        <section id="review-section" class="hidden bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 2: Revisar e Finalizar</h2>
-            <div>
-                 <h3 class="text-xl font-semibold mb-2 text-gray-700">C. Carregar Planilha de Rascunho (.xlsx)</h3>
-                 <label for="draft-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer">
-                    <div class="flex flex-col items-center justify-center">
-                        <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        <span id="draft-filename" class="text-gray-600 font-medium">Selecione o rascunho para revisar</span>
-                    </div>
-                </label>
-                <input type="file" id="draft-upload" class="hidden" accept=".xlsx">
-            </div>
-
-            <div id="log-section" class="hidden mt-6">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-lg font-semibold text-gray-700">Log de Processamento em Tempo Real</h3>
-                    <div id="timer-display" class="text-lg font-semibold text-sky-600 bg-sky-100 px-3 py-1 rounded-md">00:00:00</div>
-                </div>
-                <div id="status-log" class="font-mono text-sm text-white bg-gray-800 p-4 rounded-lg max-h-60 overflow-y-auto"></div>
-            </div>
-
-            <div id="review-container" class="mt-10 hidden space-y-10">
-                <h3 class="text-2xl font-bold text-gray-800 text-center">Itens para Aprovação</h3>
+            <div id="review-container" class="space-y-10">
+                <h3 class="text-2xl font-bold text-gray-800 text-center">Itens Processados para Aprovação</h3>
                 <div id="review-area" class="space-y-8"></div>
                 <div class="mt-8 text-center">
                      <button id="finalize-button" class="w-full md:w-1/2 bg-emerald-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-emerald-700 disabled:bg-gray-400">
@@ -92,13 +86,10 @@
                 </div>
             </div>
 
-            <div id="disapproved-container" class="mt-10 hidden space-y-8 pt-8 border-t border-gray-200">
+            <div id="disapproved-container" class="hidden mt-10 space-y-8 pt-8 border-t border-gray-200">
                 <h3 class="text-2xl font-bold text-red-600 text-center">Itens Reprovados</h3>
                 <div id="disapproved-area" class="space-y-8"></div>
                 <div class="mt-8 text-center flex flex-col md:flex-row gap-4 justify-center">
-                    <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600">
-                        Reprocessar Reprovados com IA
-                    </button>
                     <button id="finalize-disapproved-button" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700">
                         Gerar Planilha de Reprovados
                     </button>
@@ -146,9 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = {
         catalogFile: null,
         itemsFile: null,
-        draftFile: null,
         reviewItems: {},
-        timer: { intervalId: null, startTime: 0 }
+        jobId: null,
+        pollingInterval: null,
     };
 
     const dom = {
@@ -156,20 +147,18 @@ document.addEventListener('DOMContentLoaded', () => {
         catalogFilename: document.getElementById('catalog-filename'),
         itemsUpload: document.getElementById('items-upload'),
         itemsFilename: document.getElementById('items-filename'),
-        draftUpload: document.getElementById('draft-upload'),
-        draftFilename: document.getElementById('draft-filename'),
-        generateDraftButton: document.getElementById('generate-draft-button'),
+        startBatchButton: document.getElementById('start-batch-button'),
         buttonText: document.getElementById('button-text'),
         buttonLoader: document.getElementById('button-loader'),
-        logSection: document.getElementById('log-section'),
+        progressSection: document.getElementById('progress-section'),
+        progressBar: document.getElementById('progress-bar'),
+        progressText: document.getElementById('progress-text'),
         statusLog: document.getElementById('status-log'),
-        timerDisplay: document.getElementById('timer-display'),
-        reviewContainer: document.getElementById('review-container'),
+        reviewSection: document.getElementById('review-section'),
         reviewArea: document.getElementById('review-area'),
         finalizeButton: document.getElementById('finalize-button'),
         disapprovedContainer: document.getElementById('disapproved-container'),
         disapprovedArea: document.getElementById('disapproved-area'),
-        reprocessButton: document.getElementById('reprocess-button'),
         finalizeDisapprovedButton: document.getElementById('finalize-disapproved-button'),
         toastContainer: document.getElementById('toast-container'),
     };
@@ -178,99 +167,231 @@ document.addEventListener('DOMContentLoaded', () => {
         baseUrl: 'http://127.0.0.1:8000',
         async postRequest(endpoint, formData) {
             const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Erro no servidor.');
-            return response.blob();
-        },
-        async streamRequest(endpoint, formData, onEvent) {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Erro no servidor.');
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                chunk.split('\n\n').filter(line => line.trim()).forEach(line => {
-                    const event = line.match(/event: (.+)/)?.[1];
-                    const data = line.match(/data: (.+)/)?.[1];
-                    if (event && data) onEvent(event, JSON.parse(data));
-                });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Erro no servidor.');
             }
+            return response;
+        },
+        async getRequest(endpoint) {
+            const response = await fetch(`${this.baseUrl}${endpoint}`);
+             if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Erro no servidor.');
+            }
+            return response;
         }
     };
 
     const ui = {
         showToast(message, type = 'success') {
             const toast = document.createElement('div');
-            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-error'}`;
+            toast.className = `toast toast-${type}`;
             toast.textContent = message;
             dom.toastContainer.appendChild(toast);
-            setTimeout(() => { toast.classList.add('show'); }, 10);
-            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 500);
+            }, 5000);
         },
-        setProcessingState(isProcessing, message = 'Gerar Rascunho para Revisão') {
-            dom.generateDraftButton.disabled = isProcessing;
+        setProcessingState(isProcessing, message = 'Iniciar Processamento Paralelo') {
+            dom.startBatchButton.disabled = isProcessing;
             dom.buttonText.textContent = isProcessing ? 'Processando...' : message;
             dom.buttonLoader.classList.toggle('hidden', !isProcessing);
         },
         addLogMessage(message, type = 'info') {
-            const colors = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
-            const time = new Date().toLocaleTimeString();
-            dom.statusLog.innerHTML += `<p class="${colors[type]}"><span class="text-cyan-400">[${time}]</span> ${message}</p>`;
+            const colorMap = {
+                info: 'text-gray-300',
+                success: 'text-green-400',
+                warning: 'text-yellow-400',
+                error: 'text-red-400',
+            };
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `> ${message}`;
+            logEntry.className = colorMap[type] || 'text-gray-300';
+            dom.statusLog.appendChild(logEntry);
             dom.statusLog.scrollTop = dom.statusLog.scrollHeight;
         },
-        renderReviewCard(item) {
+        updateProgress(completed, total) {
+            const percentage = total > 0 ? (completed / total) * 100 : 0;
+            dom.progressBar.style.width = `${percentage}%`;
+            dom.progressText.textContent = `${completed} / ${total}`;
+        },
+        // FUNÇÃO DE RENDERIZAR CARD PARA REVISÃO (SE NECESSÁRIO NO FUTURO)
+        renderReviewCard(item, productName) {
             const sku = String(item['_EANSKU']);
-            state.reviewItems[sku] = { ...item, status: 'pending' };
             const template = document.getElementById('review-card-template');
             const card = template.content.cloneNode(true).firstElementChild;
             card.id = `card-${sku}`;
+            
+            state.reviewItems[sku] = { ...item, _NomeProduto: productName, status: 'pending' };
+
             card.querySelector('[data-name="sku"]').textContent = `SKU/EAN: ${sku}`;
-            card.querySelector('[data-name="productName"]').textContent = item['_NomeProduto (Obrigatório)'];
+            card.querySelector('[data-name="productName"]').textContent = productName;
             card.querySelector('[data-name="seoTitle"]').value = item['_TituloSite'] || '';
             card.querySelector('[data-name="metaDescription"]').value = item['_DescricaoMetaTag'] || '';
             const htmlContentArea = card.querySelector('[data-name="htmlContent"]');
             const previewFrame = card.querySelector('[data-name="previewFrame"]');
             htmlContentArea.value = item['_DescricaoProduto'] || '';
             previewFrame.srcdoc = item['_DescricaoProduto'] || '';
+
             htmlContentArea.addEventListener('input', e => previewFrame.srcdoc = e.target.value);
             card.querySelector('[data-action="approve"]').onclick = () => handleItemAction(sku, 'approved');
             card.querySelector('[data-action="disapprove"]').onclick = () => handleItemAction(sku, 'disapproved');
-            document.getElementById(`card-${sku}`)?.remove();
+            
             dom.reviewArea.appendChild(card);
         },
         updateGlobalUI() {
-            const statuses = Object.values(state.reviewItems).map(item => item.status);
-            const hasPending = statuses.some(s => s === 'pending');
-            const hasApproved = statuses.some(s => s === 'approved');
-            const hasDisapproved = statuses.some(s => s === 'disapproved');
-            dom.finalizeButton.disabled = hasPending || !hasApproved;
-            dom.reviewContainer.classList.toggle('hidden', Object.keys(state.reviewItems).length === 0);
-            dom.disapprovedContainer.classList.toggle('hidden', !hasDisapproved);
-        }
-    };
+            const allItems = Object.values(state.reviewItems);
+            const approvedCount = allItems.filter(i => i.status === 'approved').length;
+            const disapprovedCount = allItems.filter(i => i.status === 'disapproved').length;
 
-    const timer = {
-        formatTime: ms => {
-            const s = String(Math.floor((ms / 1000) % 60)).padStart(2, '0');
-            const m = String(Math.floor((ms / (1000 * 60)) % 60)).padStart(2, '0');
-            const h = String(Math.floor(ms / (1000 * 60 * 60))).padStart(2, '0');
-            return `${h}:${m}:${s}`;
-        },
-        start: () => {
-            if (state.timer.intervalId) clearInterval(state.timer.intervalId);
-            state.timer.startTime = Date.now();
-            dom.timerDisplay.textContent = '00:00:00';
-            state.timer.intervalId = setInterval(() => {
-                const elapsedTime = Date.now() - state.timer.startTime;
-                dom.timerDisplay.textContent = timer.formatTime(elapsedTime);
-            }, 1000);
-        },
-        stop: () => {
-            clearInterval(state.timer.intervalId);
-            state.timer.intervalId = null;
+            dom.finalizeButton.disabled = approvedCount === 0;
+            dom.finalizeDisapprovedButton.disabled = disapprovedCount === 0;
+            dom.disapprovedContainer.classList.toggle('hidden', disapprovedCount === 0);
         }
     };
+    
+    async function startBatchProcess() {
+        if (!state.catalogFile || !state.itemsFile) {
+            return ui.showToast('Por favor, selecione as duas planilhas.', 'error');
+        }
+        ui.setProcessingState(true);
+        dom.progressSection.classList.remove('hidden');
+        dom.statusLog.innerHTML = '';
+        ui.addLogMessage('Enviando arquivos para iniciar o processamento...');
+
+        const formData = new FormData();
+        formData.append('catalog_file', state.catalogFile);
+        formData.append('items_file', state.itemsFile);
+
+        try {
+            const response = await apiService.postRequest('/batch-process/start', formData);
+            const data = await response.json();
+            state.jobId = data.job_id;
+            ui.addLogMessage(`Trabalho iniciado com sucesso! ID: ${state.jobId}`, 'success');
+            ui.addLogMessage(`Total de ${data.task_count} tarefas na fila.`);
+            ui.updateProgress(0, data.task_count);
+            
+            setTimeout(() => {
+                state.pollingInterval = setInterval(() => checkJobStatus(state.jobId), 5000);
+            }, 1000);
+
+        } catch (error) {
+            ui.showToast(error.message, 'error');
+            ui.addLogMessage(`ERRO: ${error.message}`, 'error');
+            ui.setProcessingState(false);
+        }
+    }
+
+    async function checkJobStatus(jobId) {
+        try {
+            const response = await apiService.getRequest(`/batch-process/status/${jobId}`);
+            const data = await response.json();
+            const totalTasks = isNaN(data.total_tasks) ? 0 : data.total_tasks;
+            if (totalTasks > 0) {
+                ui.updateProgress(data.completed_tasks, totalTasks);
+            }
+
+            if (data.ready) {
+                clearInterval(state.pollingInterval);
+                state.pollingInterval = null;
+                ui.addLogMessage(`Processamento do lote finalizado. Baixando planilha de resultados...`, 'success');
+                await downloadJobResult(jobId);
+            }
+        } catch (error) {
+            clearInterval(state.pollingInterval);
+            ui.showToast(`Erro ao verificar status: ${error.message}`, 'error');
+            ui.setProcessingState(false);
+        }
+    }
+
+    async function downloadJobResult(jobId) {
+        try {
+            const response = await fetch(`${apiService.baseUrl}/batch-process/download-result/${jobId}`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                downloadBlob(blob, `resultados_${jobId}.xlsx`);
+                ui.showToast('Planilha de resultados baixada com sucesso!', 'success');
+                ui.addLogMessage('Planilha de resultados baixada. O processo foi concluído.', 'success');
+            } else {
+                const errorData = await response.json();
+                ui.showToast(errorData.message || 'Nenhum item processado com sucesso.', 'error');
+                ui.addLogMessage(`FALHA: ${errorData.message}`, 'error');
+                console.error("Falhas detalhadas:", errorData.failures);
+            }
+        } catch (error) {
+            ui.showToast(`Erro ao baixar resultados: ${error.message}`, 'error');
+            ui.addLogMessage(`ERRO no download: ${error.message}`, 'error');
+        } finally {
+            ui.setProcessingState(false);
+        }
+    }
+    
+    // --- FUNÇÕES DE REVISÃO E FINALIZAÇÃO ---
+
+    function handleItemAction(sku, status) {
+        const item = state.reviewItems[sku];
+        if (!item) return;
+
+        item.status = status;
+        const card = document.getElementById(`card-${sku}`);
+        const actionsDiv = card.querySelector('[data-name="actions"]');
+        const statusBadge = card.querySelector('[data-name="statusBadge"]');
+
+        actionsDiv.classList.add('hidden');
+        statusBadge.classList.remove('hidden');
+
+        if (status === 'approved') {
+            item['_TituloSite'] = card.querySelector('[data-name="seoTitle"]').value;
+            item['_DescricaoMetaTag'] = card.querySelector('[data-name="metaDescription"]').value;
+            item['_DescricaoProduto'] = card.querySelector('[data-name="htmlContent"]').value;
+            
+            card.classList.add('border-green-500');
+            statusBadge.textContent = 'APROVADO';
+            statusBadge.className = 'text-green-600 font-bold py-2 px-4 rounded-lg bg-green-100';
+            dom.reviewArea.prepend(card);
+        } else {
+            card.classList.add('border-red-500');
+            statusBadge.textContent = 'REPROVADO';
+            statusBadge.className = 'text-red-600 font-bold py-2 px-4 rounded-lg bg-red-100';
+            dom.disapprovedArea.prepend(card);
+        }
+        ui.updateGlobalUI();
+    }
+
+    async function handleFinalize(type) {
+        const itemsToFinalize = Object.values(state.reviewItems).filter(item => item.status === type);
+        const fileToUse = state.itemsFile; 
+        
+        if (itemsToFinalize.length === 0 || !fileToUse) {
+            ui.showToast(`Nenhum item foi marcado como '${type}'.`, 'warning');
+            return;
+        };
+
+        ui.showToast(`Gerando planilha para ${itemsToFinalize.length} item(ns) ${type}s...`);
+        
+        const formData = new FormData();
+        
+        const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
+        const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
+        
+        const fileKey = (endpoint === '/finalize-spreadsheet') ? 'spreadsheet' : 'items_file';
+        formData.append(fileKey, fileToUse);
+        formData.append(jsonKey, JSON.stringify(itemsToFinalize));
+
+        try {
+            const response = await apiService.postRequest(endpoint, formData);
+            const blob = await response.blob();
+            
+            downloadBlob(blob, `planilha_${type}s.xlsx`);
+            ui.showToast(`Planilha de ${type}s gerada com sucesso!`, 'success');
+        } catch (error) {
+            ui.showToast(error.message, 'error');
+        }
+    }
 
     function downloadBlob(blob, filename) {
         const url = window.URL.createObjectURL(blob);
@@ -284,159 +405,18 @@ document.addEventListener('DOMContentLoaded', () => {
         a.remove();
     }
     
-    function base64ToBlob(base64, contentType = 'application/octet-stream') {
-        const byteCharacters = atob(base64);
-        const byteArrays = [];
-        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-            const slice = byteCharacters.slice(offset, offset + 512);
-            const byteNumbers = new Array(slice.length);
-            for (let i = 0; i < slice.length; i++) {
-                byteNumbers[i] = slice.charCodeAt(i);
-            }
-            byteArrays.push(new Uint8Array(byteNumbers));
-        }
-        return new Blob(byteArrays, { type: contentType });
-    }
-
-    function handleItemAction(sku, status) {
-        state.reviewItems[sku].status = status;
-        const card = document.getElementById(`card-${sku}`);
-        const actionsDiv = card.querySelector('[data-name="actions"]');
-        const statusBadge = card.querySelector('[data-name="statusBadge"]');
-        actionsDiv.classList.add('hidden');
-        statusBadge.classList.remove('hidden');
-        card.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50');
-
-        if (status === 'approved') {
-            card.classList.add('border-green-500', 'bg-green-50');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
-            state.reviewItems[sku]['_TituloSite'] = card.querySelector('[data-name="seoTitle"]').value;
-            state.reviewItems[sku]['_DescricaoMetaTag'] = card.querySelector('[data-name="metaDescription"]').value;
-            state.reviewItems[sku]['_DescricaoProduto'] = card.querySelector('[data-name="htmlContent"]').value;
-        } else {
-            card.classList.add('border-red-500', 'bg-red-50');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
-            dom.disapprovedArea.appendChild(card);
-        }
-        ui.updateGlobalUI();
-    }
-
-    async function handleGenerateDraft() {
-        if (!state.catalogFile || !state.itemsFile) { return ui.showToast('Por favor, selecione as duas planilhas Excel.', 'error'); }
-        ui.setProcessingState(true);
-        dom.logSection.classList.remove('hidden');
-        dom.statusLog.innerHTML = '';
-        ui.addLogMessage('Enviando arquivos e iniciando processamento em lote...');
-        timer.start();
-
-        const formData = new FormData();
-        formData.append('catalog_file', state.catalogFile);
-        formData.append('items_file', state.itemsFile);
-        try {
-            await apiService.streamRequest('/batch-process-and-generate-draft', formData, (event, data) => {
-                 if (event === 'log') {
-                    ui.addLogMessage(data.message, data.type);
-                } else if (event === 'finished') {
-                    ui.addLogMessage(`<b>Processamento em lote concluído!</b>`, 'success');
-                    const blob = base64ToBlob(data.file_data, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                    downloadBlob(blob, data.filename);
-                    ui.showToast('Rascunho gerado com sucesso! Carregue-o na Etapa 2 para revisar.');
-                }
-            });
-        } catch (error) {
-            ui.showToast(error.message, 'error');
-            ui.addLogMessage(`<b class="text-red-400">ERRO:</b> ${error.message}`, 'error');
-        } finally {
-            ui.setProcessingState(false, 'Gerar Novo Rascunho');
-            timer.stop();
-        }
-    }
-
-    function handleDraftUpload(event) {
-        state.draftFile = event.target.files[0];
-        if (!state.draftFile) return;
-        dom.draftFilename.textContent = state.draftFile.name;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet);
-            dom.reviewArea.innerHTML = '';
-            dom.disapprovedArea.innerHTML = '';
-            state.reviewItems = {};
-            json.forEach(ui.renderReviewCard);
-            ui.updateGlobalUI();
-        };
-        reader.readAsArrayBuffer(state.draftFile);
-    }
-
-    async function handleFinalize(type) {
-        const itemsToFinalize = Object.values(state.reviewItems).filter(item => item.status === type);
-        if (itemsToFinalize.length === 0) return ui.showToast(`Nenhum item foi ${type}.`, 'error');
-        const requiredFile = type === 'approved' ? state.draftFile : state.itemsFile;
-        if (!requiredFile) return ui.showToast(`O arquivo de ${type === 'approved' ? 'rascunho' : 'itens'} é necessário.`, 'error');
-        
-        ui.showToast(`Gerando planilha para ${itemsToFinalize.length} item(ns)...`);
-        const formData = new FormData();
-        const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
-        const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
-        const fileKey = type === 'approved' ? 'spreadsheet' : 'items_file';
-        
-        formData.append(jsonKey, JSON.stringify(itemsToFinalize));
-        formData.append(fileKey, requiredFile);
-
-        try {
-            const blob = await apiService.postRequest(endpoint, formData);
-            downloadBlob(blob, `planilha_${type}.xlsx`);
-            ui.showToast(`Planilha de ${type}s gerada com sucesso!`);
-        } catch (error) {
-            ui.showToast(error.message, 'error');
-        }
-    }
-
-    async function handleReprocess() {
-        const itemsToReprocess = Object.values(state.reviewItems).filter(item => item.status === 'disapproved');
-        if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados para reprocessar.', 'error');
-        if (!state.catalogFile) return ui.showToast('O arquivo de catálogo é necessário. Selecione-o na Etapa 1.', 'error');
-        
-        dom.logSection.classList.remove('hidden');
-        dom.statusLog.innerHTML = '';
-        ui.addLogMessage(`<b>Iniciando reprocessamento para ${itemsToReprocess.length} item(ns)...</b>`);
-        timer.start();
-        
-        const formData = new FormData();
-        formData.append('catalog_file', state.catalogFile);
-        formData.append('items_to_reprocess_json', JSON.stringify(itemsToReprocess));
-
-        try {
-            await apiService.streamRequest('/reprocess-items', formData, (event, data) => {
-                if (event === 'log') {
-                    ui.addLogMessage(data.message, data.type);
-                } else if (event === 'done') {
-                    const sku = data['_EANSKU'];
-                    ui.addLogMessage(`Conteúdo regenerado para SKU ${sku}. Movido para revisão.`, 'success');
-                    ui.renderReviewCard(data);
-                }
-            });
-            ui.addLogMessage("<b>Reprocessamento concluído!</b>", "success");
-        } catch(error) {
-            ui.showToast(error.message, 'error');
-            ui.addLogMessage(`<b class="text-red-400">ERRO:</b> ${error.message}`, 'error');
-        } finally {
-            timer.stop();
-            ui.updateGlobalUI();
-        }
-    }
+    // --- Event Listeners ---
+    dom.catalogUpload.addEventListener('change', e => { state.catalogFile = e.target.files[0]; dom.catalogFilename.textContent = state.catalogFile?.name || 'Selecione o catálogo'; });
+    dom.itemsUpload.addEventListener('change', e => { state.itemsFile = e.target.files[0]; dom.itemsFilename.textContent = state.itemsFile?.name || 'Selecione os itens'; });
+    dom.startBatchButton.addEventListener('click', startBatchProcess);
     
-    dom.catalogUpload.addEventListener('change', e => { state.catalogFile = e.target.files[0]; dom.catalogFilename.textContent = state.catalogFile?.name || 'Selecione o catálogo (.xlsx)'; });
-    dom.itemsUpload.addEventListener('change', e => { state.itemsFile = e.target.files[0]; dom.itemsFilename.textContent = state.itemsFile?.name || 'Selecione os itens a processar (.xlsx)'; });
-    dom.draftUpload.addEventListener('change', handleDraftUpload);
-    dom.generateDraftButton.addEventListener('click', handleGenerateDraft);
-    dom.finalizeButton.addEventListener('click', () => handleFinalize('approved'));
-    dom.finalizeDisapprovedButton.addEventListener('click', () => handleFinalize('disapproved'));
-    dom.reprocessButton.addEventListener('click', handleReprocess);
+    // Ativa os botões de finalização da revisão
+    if(dom.finalizeButton) {
+        dom.finalizeButton.addEventListener('click', () => handleFinalize('approved'));
+    }
+    if(dom.finalizeDisapprovedButton) {
+        dom.finalizeDisapprovedButton.addEventListener('click', () => handleFinalize('disapproved'));
+    }
 });
 </script>
 </body>
