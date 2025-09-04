@@ -1,4 +1,3 @@
-# app/prompt_manager.py (Versão Corrigida)
 import os
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape

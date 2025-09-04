@@ -11,7 +11,7 @@ load_dotenv(BASE_DIR / ".env")
 # Configurações da API Gemini
 API_KEY = os.getenv("GEMINI_API_KEY")
 DEFAULT_MODEL = "gemini-2.5-flash"
-REQUEST_TIMEOUT = 60
+REQUEST_TIMEOUT = 120
 
 # Caminhos de diretório
 PROMPTS_DIR = BASE_DIR / "prompts"
