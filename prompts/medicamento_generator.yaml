@@ -1,5 +1,5 @@
-name: "Gerador de Página de Produto v23 (JSON Robusto)"
-description: "Gera um objeto JSON completo seguindo a lauda final, com extração de nome base, nomenclatura, avisos personalizados e estrutura de FAQ com accordion."
+name: "Gerador de Página de Produto v24 (SEO Otimizado)"
+description: "Gera um objeto JSON completo com novas regras de SEO para Título e Meta Descrição, incluindo a exclusão da marca e sufixo obrigatório."
 template: |
   # MISSÃO: GERAR CONTEÚDO ESTRUTURADO SEGUINDO A LAUDA MESTRA
 
@@ -52,8 +52,7 @@ template: |
 
   ### SEÇÃO 6: Especificações (Tabela)
   - **Título (h2):** `<h2>Especificações</h2>`
-  - **Conteúdo:** Uma tabela HTML (`<table>`) com **APENAS** estas três linhas: Fabricante, Princípio Ativo e Registro MS.
-
+  - **Conteúdo:** Uma tabela HTML (`<table>`) com **APENAS** estas três linhas: Fabricante, EAN SKU, Princípio Ativo, 
   ### SEÇÃO 7: Perguntas Frequentes (FAQ com Accordion Aberto)
   - **NÃO HAVERÁ UM TÍTULO PRINCIPAL PARA A FAQ.**
   - **Conteúdo:** Crie de 3 a 5 perguntas relevantes. Cada pergunta deve seguir **EXATAMENTE** esta estrutura, garantindo que o título seja natural:
@@ -70,18 +69,25 @@ template: |
 
   --- FIM DA ESTRUTURA HTML ---
 
-  ## 5. REGRAS PARA "seo_title" e "meta_description"
+  ## 5. REGRAS PARA "seo_title" e "meta_description" (NOVAS REGRAS DE SEO)
 
-  - **`seo_title`**: Crie um título otimizado (50-65 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] [Fabricante] [Quantidade]`.
-    - **Exemplo de Título:** `Aldazida 50mg Pfizer 30 Comprimidos`
+  - **`seo_title`**: Crie um título otimizado (50-65 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] [Quantidade] | Mevo Farma`.
+    - **REGRAS OBRIGATÓRIAS PARA O TÍTULO:**
+      1.  **NÃO inclua o nome da marca/fabricante** (Ex: Pfizer, Cimed, etc.).
+      2.  O título **DEVE OBRIGATORIAMENTE terminar com** ` | Mevo Farma`.
+      3.  Não use caracteres especiais desnecessários (como &). Acentuação da língua portuguesa é permitida.
+    - **Exemplo de Título:** `Aldazida 50mg 30 Comprimidos | Mevo Farma`
 
-  - **`meta_description`**: Crie uma meta descrição otimizada (120-165 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] da [Fabricante], com [Quantidade], auxilia no [Principal benefício]. Produto de qualidade na Mevo Farma`.
-    - **Exemplo de Meta Descrição:** `Aldazida 50mg da Pfizer, com 30 comprimidos, auxilia no controle da pressão alta. Produto de qualidade na Mevo Farma.`
+  - **`meta_description`**: Crie uma meta descrição otimizada (120-165 caracteres) que seja atrativa e diferente do título.
+    - **REGRAS OBRIGATÓRIAS PARA A META DESCRIÇÃO:**
+      1.  O texto deve ser único, focando no principal benefício do produto de forma convidativa.
+      2.  A descrição **DEVE OBRIGATORIAMENTE terminar com a frase:** `Compre Agora na Mevo Farma.`
+    - **Exemplo de Meta Descrição:** `Encontre Aldazida 50mg com 30 comprimidos, um importante aliado para o controle da pressão alta e tratamentos diuréticos. Compre Agora na Mevo Farma.`
 
   - **Instruções Adicionais:**
-    - Extraia as informações de `Dosagem`, `Fabricante`, `Quantidade` e o `Principal benefício` diretamente do texto da bula (`Fonte da Verdade`).
+    - Extraia as informações de `Dosagem`, `Quantidade` e o `Principal benefício` diretamente do texto da bula (`Fonte da Verdade`).
     - Adapte o texto para que se encaixe nos limites de caracteres, mantendo a clareza e o padrão definido.
-  
+
   ## 6. REGRA FINAL E OBRIGATÓRIA: SAÍDA JSON ESTRITA
   Sua resposta deve ser **APENAS** um objeto JSON válido. Não inclua texto antes ou depois do JSON. A estrutura deve ser:
   ```json

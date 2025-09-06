@@ -3,21 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEVO - Autoprocessador de Conteúdo v10.0</title>
+    <title>PharmaBoost IA - Curadoria de Conteúdo v17.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
         .file-label { transition: all 0.2s ease-in-out; }
-        .drag-over { background-color: #e0f2fe; border-color: #0284c7; }
         .loader { border: 4px solid #f3f4f6; border-top: 4px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
-        .toast { display: flex; align-items: center; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateX(120%); opacity: 0; transition: all 0.4s cubic-bezier(0.21, 1.02, 0.73, 1); }
+        #toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast { display: flex; align-items: center; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transform: translateX(120%); opacity: 0; transition: all 0.4s cubic-bezier(0.21, 1.02, 0.73, 1); min-width: 300px; }
         .toast.show { transform: translateX(0); opacity: 1; }
-        .toast-success { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
-        .toast-error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .toast-success { background-color: #ecfdf5; color: #065f46; border-left: 5px solid #10b981; }
+        .toast-error { background-color: #fef2f2; color: #b91c1c; border-left: 5px solid #ef4444; }
+        .toast-info { background-color: #eff6ff; color: #1e40af; border-left: 5px solid #3b82f6; }
+        .tab-button {
+            padding: 0.75rem 1.5rem; font-weight: 600; color: #4b5563;
+            border-bottom: 4px solid transparent; cursor: pointer; transition: all 0.2s ease;
+        }
+        .tab-button.active { color: #0284c7; border-bottom-color: #0284c7; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card-content { max-height: 2000px; transition: all 0.5s ease-in-out; overflow: hidden; opacity: 1; margin-top: 1.5rem; border-top: 1px solid #e5e7eb; padding-top: 1.5rem;}
+        .card-content.collapsed { max-height: 0; opacity: 0; margin-top: 0; padding-top: 0; border-top: none; }
+        #progress-bar-inner { transition: width 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -25,419 +36,690 @@
     <div id="toast-container"></div>
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-sky-600">Autoprocessador de Conteúdo MEVO</h1>
-            <p class="text-gray-600 mt-2">Gere rascunhos em lote e revise-os para aprovação final de forma eficiente.</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-sky-700">PharmaBoost IA</h1>
+            <p class="text-gray-600 mt-2">Plataforma de Curadoria de Conteúdo v17.7</p>
         </header>
 
-        <main id="batch-section" class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8 mb-10">
+        <div class="mb-5 border-b border-gray-300 bg-white rounded-t-lg shadow-sm">
+            <nav class="flex -mb-px px-4" aria-label="Tabs">
+                <button class="tab-button active" data-tab="lote"><i class="fas fa-layer-group mr-2"></i>Processar em Lote</button>
+                <button class="tab-button" data-tab="manual"><i class="fas fa-file-pen mr-2"></i>Processar Item Manual</button>
+            </nav>
+        </div>
+
+        <main id="tab-content-lote" class="tab-content active bg-white p-6 md:p-8 rounded-b-xl shadow-lg space-y-8 mb-10">
             <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 1: Gerar Rascunhos em Lote</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-700">A. Planilha Catálogo Geral (.xlsx)</h3>
-                    <label for="catalog-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer">
-                        <div class="flex flex-col items-center justify-center">
-                             <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            <span id="catalog-filename" class="text-gray-600 font-medium">Selecione o catálogo</span>
-                        </div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-700">A. Catálogo Geral (.xlsx)</h3>
+                    <label for="catalog-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:bg-gray-50">
+                        <span id="catalog-filename" class="text-gray-600 font-medium"><i class="fas fa-database mr-2"></i>Selecione o catálogo</span>
                     </label>
-                    <input type="file" id="catalog-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <input type="file" id="catalog-upload" class="hidden" accept=".xlsx">
                 </div>
                 <div>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-700">B. Planilha de Itens a Processar (.xlsx)</h3>
-                    <label for="items-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer">
-                        <div class="flex flex-col items-center justify-center">
-                            <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
-                            <span id="items-filename" class="text-gray-600 font-medium">Selecione os itens</span>
-                        </div>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-700">B. Itens a Processar (.xlsx)</h3>
+                    <label for="items-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:bg-gray-50">
+                         <span id="items-filename" class="text-gray-600 font-medium"><i class="fas fa-file-excel mr-2"></i>Selecione os itens</span>
                     </label>
-                    <input type="file" id="items-upload" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                    <input type="file" id="items-upload" class="hidden" accept=".xlsx">
                 </div>
+            </div>
+            <div id="progress-section" class="hidden pt-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="progress-label" class="text-sm font-medium text-gray-700">Processando...</span>
+                    <span id="progress-percentage" class="text-sm font-bold text-sky-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4"><div id="progress-bar-inner" class="bg-sky-600 h-4 rounded-full" style="width: 0%"></div></div>
             </div>
             <div class="text-center pt-8">
                 <button id="generate-draft-button" class="w-full md:w-auto bg-sky-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-sky-700 disabled:bg-gray-400 flex items-center justify-center mx-auto">
-                    <span id="button-text">Gerar Rascunho para Revisão</span>
-                    <div id="button-loader" class="loader hidden ml-3"></div>
+                    <span id="button-text-lote">Gerar Rascunho</span>
+                    <div id="button-loader-lote" class="loader hidden ml-3"></div>
+                </button>
+            </div>
+        </main>
+
+        <main id="tab-content-manual" class="tab-content bg-white p-6 md:p-8 rounded-b-xl shadow-lg space-y-8 mb-10">
+            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Processar Item Único com Bula</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="manual-product-name" class="block text-sm font-medium text-gray-700">Nome do Produto</label>
+                        <input type="text" id="manual-product-name" placeholder="Ex: Aldazida 50mg Pfizer 30 Comprimidos" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                     <div>
+                        <label for="manual-ean-sku" class="block text-sm font-medium text-gray-700">EAN / SKU</label>
+                        <input type="text" id="manual-ean-sku" placeholder="Ex: 7891234567890" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <div>
+                     <h3 class="text-sm font-medium text-gray-700 mb-1">Arquivo da Bula (PDF)</h3>
+                     <label for="manual-bula-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer hover:bg-gray-50">
+                        <span id="manual-bula-filename" class="text-gray-600 font-medium"><i class="fas fa-file-pdf mr-2"></i>Selecione o arquivo PDF</span>
+                    </label>
+                    <input type="file" id="manual-bula-upload" class="hidden" accept="application/pdf">
+                </div>
+            </div>
+             <div class="text-center pt-8">
+                <button id="generate-manual-button" class="w-full md:w-auto bg-teal-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-teal-700 disabled:bg-gray-400 flex items-center justify-center mx-auto">
+                    <span id="button-text-manual">Gerar Conteúdo</span>
+                    <div id="button-loader-manual" class="loader hidden ml-3"></div>
                 </button>
             </div>
         </main>
         
         <section id="review-section" class="bg-white p-6 md:p-8 rounded-xl shadow-lg space-y-8">
-            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 2: Revisar e Finalizar</h2>
+            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4">Etapa 2: Curadoria e Finalização</h2>
             <div>
-                 <h3 class="text-xl font-semibold mb-2 text-gray-700">C. Carregar Planilha de Rascunho (.xlsx)</h3>
-                 <label for="draft-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-full text-center cursor-pointer">
-                    <div class="flex flex-col items-center justify-center">
-                        <svg class="h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        <span id="draft-filename" class="text-gray-600 font-medium">Selecione o rascunho para revisar</span>
-                    </div>
+                 <h3 class="text-xl font-semibold mb-2 text-gray-700">C. Planilha Base para Finalização (.xlsx)</h3>
+                 <p class="text-sm text-gray-500 mb-3">Carregue o rascunho gerado ou a planilha de "Itens a Processar". <b>É obrigatória para gerar os arquivos finais.</b></p>
+                 <label for="base-spreadsheet-upload" class="file-label border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50">
+                    <span id="base-spreadsheet-filename" class="text-gray-600 font-medium"><i class="fas fa-upload mr-2"></i>Selecione a planilha base</span>
                 </label>
-                <input type="file" id="draft-upload" class="hidden" accept=".xlsx">
+                <input type="file" id="base-spreadsheet-upload" class="hidden" accept=".xlsx">
             </div>
-
             <div id="log-section" class="hidden mt-6">
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-lg font-semibold text-gray-700">Log de Processamento em Tempo Real</h3>
-                    <div id="timer-display" class="text-lg font-semibold text-sky-600 bg-sky-100 px-3 py-1 rounded-md">00:00:00</div>
-                </div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Log de Processamento</h3>
                 <div id="status-log" class="font-mono text-sm text-white bg-gray-800 p-4 rounded-lg max-h-60 overflow-y-auto"></div>
             </div>
-
-            <div id="review-container" class="mt-10 hidden space-y-10">
-                <h3 class="text-2xl font-bold text-gray-800 text-center">Itens para Aprovação</h3>
-                <div id="review-area" class="space-y-8"></div>
-                <div class="mt-8 text-center">
-                     <button id="finalize-button" class="w-full md:w-1/2 bg-emerald-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-emerald-700 disabled:bg-gray-400">
-                        Finalizar e Gerar Planilha de Aprovados
-                    </button>
+            <div id="curation-area" class="hidden mt-10 space-y-10">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="search-input" placeholder="Filtrar por nome ou SKU..." class="w-full pl-10 pr-4 py-2 border rounded-lg">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="collapse-all-button" class="bg-gray-200 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-300"><i class="fas fa-compress-alt mr-2"></i>Recolher Todos</button>
+                            <button id="approve-all-button" class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-600"><i class="fas fa-check-double mr-2"></i>Aprovar Pendentes</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div id="disapproved-container" class="mt-10 hidden space-y-8 pt-8 border-t border-gray-200">
-                <h3 class="text-2xl font-bold text-red-600 text-center">Itens Reprovados</h3>
-                <div id="disapproved-area" class="space-y-8"></div>
-                <div class="mt-8 text-center flex flex-col md:flex-row gap-4 justify-center">
-                    <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600">
-                        Reprocessar Reprovados com IA
-                    </button>
-                    <button id="finalize-disapproved-button" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700">
-                        Gerar Planilha de Reprovados
-                    </button>
+                <div id="review-area" class="space-y-8"></div>
+                <div id="approved-section" class="hidden space-y-4">
+                     <h3 class="text-2xl font-bold text-green-600 text-center">Itens Aprovados</h3>
+                     <div id="approved-area" class="space-y-8"></div>
+                     <div class="mt-8 text-center">
+                         <button id="finalize-button" class="w-full md:w-1/2 bg-emerald-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-emerald-700 disabled:bg-gray-400"><i class="fas fa-file-download mr-2"></i>Finalizar e Gerar Planilha de Aprovados (.xlsx)</button>
+                    </div>
+                </div>
+                <div id="disapproved-section" class="hidden space-y-4 pt-8 border-t">
+                    <h3 class="text-2xl font-bold text-red-600 text-center">Itens Reprovados</h3>
+                    <div id="disapproved-area" class="space-y-8"></div>
+                    <div class="mt-8 text-center flex flex-col md:flex-row gap-4 justify-center">
+                        <button id="reprocess-button" class="w-full md:w-auto flex-1 bg-amber-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-600"><i class="fas fa-sync-alt mr-2"></i>Reprocessar com Feedback</button>
+                        <button id="finalize-disapproved-button" class="w-full md:w-auto flex-1 bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700"><i class="fas fa-file-excel mr-2"></i>Gerar Planilha de Reprovados</button>
+                    </div>
                 </div>
             </div>
         </section>
     </div>
 
     <template id="review-card-template">
-        <div class="p-5 border-2 rounded-xl shadow-md bg-white transition-all duration-300 space-y-6">
-            <div class="flex flex-wrap justify-between items-center pb-4 border-b">
+        <div class="p-5 border rounded-xl shadow-md bg-white transition-all duration-300 space-y-4">
+            <div class="flex flex-wrap justify-between items-start pb-4 gap-4">
                 <div>
                     <h3 class="font-bold text-xl text-sky-800" data-name="sku"></h3>
                     <p class="text-md text-gray-600" data-name="productName"></p>
                 </div>
-                <div data-name="actions" class="flex items-center space-x-3">
-                    <button data-action="disapprove" class="bg-red-500 text-white px-5 py-2 rounded-lg hover:bg-red-600 font-semibold">Reprovar</button>
-                    <button data-action="approve" class="bg-sky-500 text-white px-5 py-2 rounded-lg hover:bg-sky-600 font-semibold">Aprovar</button>
-                </div>
-                <div data-name="statusBadge" class="hidden"></div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Título SEO</label>
-                    <textarea rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg" data-name="seoTitle"></textarea>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Meta Descrição</label>
-                    <textarea rows="3" class="data-input w-full p-2 border border-gray-300 rounded-lg" data-name="metaDescription"></textarea>
+                <div class="flex items-center space-x-3 flex-shrink-0">
+                     <button data-action="toggle" class="text-gray-500 hover:text-sky-600 text-sm font-semibold"><i class="fas fa-eye-slash mr-1"></i>Ocultar</button>
+                     <div data-name="actions">
+                        <button data-action="disapprove" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-semibold"><i class="fas fa-times mr-2"></i>Reprovar</button>
+                        <button data-action="approve" class="bg-sky-100 text-sky-700 px-4 py-2 rounded-lg hover:bg-sky-200 font-semibold"><i class="fas fa-check mr-2"></i>Aprovar</button>
+                    </div>
+                    <div data-name="statusBadge" class="hidden"></div>
                 </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
-                <textarea rows="15" class="data-input w-full p-2 border border-gray-300 rounded-lg font-mono text-xs" data-name="htmlContent"></textarea>
-            </div>
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <label class="block text-sm font-medium text-gray-700 mb-2 text-center">Preview Visual</label>
-                <iframe class="w-full h-full border bg-white rounded-lg" style="min-height: 500px;" data-name="previewFrame"></iframe>
+            <div class="card-content">
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Título SEO</label>
+                            <textarea rows="3" class="w-full p-2 border border-gray-300 rounded-lg" data-name="seoTitle"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Meta Descrição</label>
+                            <textarea rows="3" class="w-full p-2 border border-gray-300 rounded-lg" data-name="metaDescription"></textarea>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div class="xl:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Conteúdo HTML</label>
+                            <textarea rows="15" class="w-full p-2 border border-gray-300 rounded-lg font-mono text-xs" data-name="htmlContent"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Análise de Tags</label>
+                            <div data-name="tags-analysis" class="p-3 border border-gray-300 rounded-lg bg-gray-50 h-full text-sm space-y-1"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2 text-center">Preview Visual</label>
+                        <iframe class="w-full h-full border bg-white rounded-lg" style="min-height: 500px;" data-name="previewFrame" loading="lazy" sandbox></iframe>
+                    </div>
+                    <div data-name="feedback-section" class="hidden pt-4 border-t">
+                        <label class="block text-sm font-medium text-red-700 mb-1">Feedback para a IA (Opcional)</label>
+                        <textarea rows="3" class="w-full p-2 border border-gray-300 rounded-lg" data-name="feedbackText" placeholder="Ex: Reescreva a seção 'Como Usar' para ser mais clara. O título SEO precisa incluir a dosagem."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Este feedback será usado ao clicar em "Reprocessar com Feedback".</p>
+                    </div>
+                </div>
             </div>
         </div>
     </template>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const state = {
-        catalogFile: null,
-        itemsFile: null,
-        draftFile: null,
-        reviewItems: {},
-        timer: { intervalId: null, startTime: 0 }
-    };
+    document.addEventListener('DOMContentLoaded', () => {
 
-    const dom = {
-        catalogUpload: document.getElementById('catalog-upload'),
-        catalogFilename: document.getElementById('catalog-filename'),
-        itemsUpload: document.getElementById('items-upload'),
-        itemsFilename: document.getElementById('items-filename'),
-        draftUpload: document.getElementById('draft-upload'),
-        draftFilename: document.getElementById('draft-filename'),
-        generateDraftButton: document.getElementById('generate-draft-button'),
-        buttonText: document.getElementById('button-text'),
-        buttonLoader: document.getElementById('button-loader'),
-        logSection: document.getElementById('log-section'),
-        statusLog: document.getElementById('status-log'),
-        timerDisplay: document.getElementById('timer-display'),
-        reviewContainer: document.getElementById('review-container'),
-        reviewArea: document.getElementById('review-area'),
-        finalizeButton: document.getElementById('finalize-button'),
-        disapprovedContainer: document.getElementById('disapproved-container'),
-        disapprovedArea: document.getElementById('disapproved-area'),
-        reprocessButton: document.getElementById('reprocess-button'),
-        finalizeDisapprovedButton: document.getElementById('finalize-disapproved-button'),
-        toastContainer: document.getElementById('toast-container'),
-    };
-
-    const apiService = {
-        baseUrl: 'http://127.0.0.1:8000',
-        async postRequest(endpoint, formData) {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Erro no servidor.');
-            return response.blob();
-        },
-        async streamRequest(endpoint, formData, onEvent) {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
-            if (!response.ok) throw new Error((await response.json()).detail || 'Erro no servidor.');
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                chunk.split('\n\n').filter(line => line.trim()).forEach(line => {
-                    const event = line.match(/event: (.+)/)?.[1];
-                    const data = line.match(/data: (.+)/)?.[1];
-                    if (event && data) onEvent(event, JSON.parse(data));
-                });
+        // --- FUNÇÕES AUXILIARES ---
+        function downloadBlob(blob, filename) {
+            if (!blob) {
+                console.error("Download falhou: blob é nulo.");
+                ui.showToast("Erro ao gerar arquivo para download.", "error");
+                return;
             }
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
         }
-    };
 
-    const ui = {
-        showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-error'}`;
-            toast.textContent = message;
-            dom.toastContainer.appendChild(toast);
-            setTimeout(() => { toast.classList.add('show'); }, 10);
-            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000);
-        },
-        setProcessingState(isProcessing, message = 'Gerar Rascunho para Revisão') {
-            dom.generateDraftButton.disabled = isProcessing;
-            dom.buttonText.textContent = isProcessing ? 'Processando...' : message;
-            dom.buttonLoader.classList.toggle('hidden', !isProcessing);
-        },
-        addLogMessage(message, type = 'info') {
-            const colors = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
-            const time = new Date().toLocaleTimeString();
-            dom.statusLog.innerHTML += `<p class="${colors[type]}"><span class="text-cyan-400">[${time}]</span> ${message}</p>`;
-            dom.statusLog.scrollTop = dom.statusLog.scrollHeight;
-        },
-        renderReviewCard(item) {
-            const sku = String(item['_EANSKU']);
-            state.reviewItems[sku] = { ...item, status: 'pending' };
-            const template = document.getElementById('review-card-template');
-            const card = template.content.cloneNode(true).firstElementChild;
-            card.id = `card-${sku}`;
-            card.querySelector('[data-name="sku"]').textContent = `SKU/EAN: ${sku}`;
-            card.querySelector('[data-name="productName"]').textContent = item['_NomeProduto (Obrigatório)'];
-            card.querySelector('[data-name="seoTitle"]').value = item['_TituloSite'] || '';
-            card.querySelector('[data-name="metaDescription"]').value = item['_DescricaoMetaTag'] || '';
-            const htmlContentArea = card.querySelector('[data-name="htmlContent"]');
-            const previewFrame = card.querySelector('[data-name="previewFrame"]');
-            htmlContentArea.value = item['_DescricaoProduto'] || '';
-            previewFrame.srcdoc = item['_DescricaoProduto'] || '';
-            htmlContentArea.addEventListener('input', e => previewFrame.srcdoc = e.target.value);
-            card.querySelector('[data-action="approve"]').onclick = () => handleItemAction(sku, 'approved');
-            card.querySelector('[data-action="disapprove"]').onclick = () => handleItemAction(sku, 'disapproved');
-            document.getElementById(`card-${sku}`)?.remove();
-            dom.reviewArea.appendChild(card);
-        },
-        updateGlobalUI() {
-            const statuses = Object.values(state.reviewItems).map(item => item.status);
-            const hasPending = statuses.some(s => s === 'pending');
-            const hasApproved = statuses.some(s => s === 'approved');
-            const hasDisapproved = statuses.some(s => s === 'disapproved');
-            dom.finalizeButton.disabled = hasPending || !hasApproved;
-            dom.reviewContainer.classList.toggle('hidden', Object.keys(state.reviewItems).length === 0);
-            dom.disapprovedContainer.classList.toggle('hidden', !hasDisapproved);
-        }
-    };
-
-    const timer = {
-        formatTime: ms => {
-            const s = String(Math.floor((ms / 1000) % 60)).padStart(2, '0');
-            const m = String(Math.floor((ms / (1000 * 60)) % 60)).padStart(2, '0');
-            const h = String(Math.floor(ms / (1000 * 60 * 60))).padStart(2, '0');
-            return `${h}:${m}:${s}`;
-        },
-        start: () => {
-            if (state.timer.intervalId) clearInterval(state.timer.intervalId);
-            state.timer.startTime = Date.now();
-            dom.timerDisplay.textContent = '00:00:00';
-            state.timer.intervalId = setInterval(() => {
-                const elapsedTime = Date.now() - state.timer.startTime;
-                dom.timerDisplay.textContent = timer.formatTime(elapsedTime);
-            }, 1000);
-        },
-        stop: () => {
-            clearInterval(state.timer.intervalId);
-            state.timer.intervalId = null;
-        }
-    };
-
-    function downloadBlob(blob, filename) {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-    }
-    
-    function base64ToBlob(base64, contentType = 'application/octet-stream') {
-        const byteCharacters = atob(base64);
-        const byteArrays = [];
-        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-            const slice = byteCharacters.slice(offset, offset + 512);
-            const byteNumbers = new Array(slice.length);
-            for (let i = 0; i < slice.length; i++) {
-                byteNumbers[i] = slice.charCodeAt(i);
-            }
-            byteArrays.push(new Uint8Array(byteNumbers));
-        }
-        return new Blob(byteArrays, { type: contentType });
-    }
-
-    function handleItemAction(sku, status) {
-        state.reviewItems[sku].status = status;
-        const card = document.getElementById(`card-${sku}`);
-        const actionsDiv = card.querySelector('[data-name="actions"]');
-        const statusBadge = card.querySelector('[data-name="statusBadge"]');
-        actionsDiv.classList.add('hidden');
-        statusBadge.classList.remove('hidden');
-        card.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50');
-
-        if (status === 'approved') {
-            card.classList.add('border-green-500', 'bg-green-50');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado ✓</span>`;
-            state.reviewItems[sku]['_TituloSite'] = card.querySelector('[data-name="seoTitle"]').value;
-            state.reviewItems[sku]['_DescricaoMetaTag'] = card.querySelector('[data-name="metaDescription"]').value;
-            state.reviewItems[sku]['_DescricaoProduto'] = card.querySelector('[data-name="htmlContent"]').value;
-        } else {
-            card.classList.add('border-red-500', 'bg-red-50');
-            statusBadge.innerHTML = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado ✗</span>`;
-            dom.disapprovedArea.appendChild(card);
-        }
-        ui.updateGlobalUI();
-    }
-
-    async function handleGenerateDraft() {
-        if (!state.catalogFile || !state.itemsFile) { return ui.showToast('Por favor, selecione as duas planilhas Excel.', 'error'); }
-        ui.setProcessingState(true);
-        dom.logSection.classList.remove('hidden');
-        dom.statusLog.innerHTML = '';
-        ui.addLogMessage('Enviando arquivos e iniciando processamento em lote...');
-        timer.start();
-
-        const formData = new FormData();
-        formData.append('catalog_file', state.catalogFile);
-        formData.append('items_file', state.itemsFile);
-        try {
-            await apiService.streamRequest('/batch-process-and-generate-draft', formData, (event, data) => {
-                 if (event === 'log') {
-                    ui.addLogMessage(data.message, data.type);
-                } else if (event === 'finished') {
-                    ui.addLogMessage(`<b>Processamento em lote concluído!</b>`, 'success');
-                    const blob = base64ToBlob(data.file_data, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                    downloadBlob(blob, data.filename);
-                    ui.showToast('Rascunho gerado com sucesso! Carregue-o na Etapa 2 para revisar.');
+        function base64ToBlob(base64, contentType = 'application/octet-stream') {
+            try {
+                const byteCharacters = atob(base64);
+                const byteArrays = [];
+                for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                    const slice = byteCharacters.slice(offset, offset + 512);
+                    const byteNumbers = new Array(slice.length);
+                    for (let i = 0; i < slice.length; i++) {
+                        byteNumbers[i] = slice.charCodeAt(i);
+                    }
+                    byteArrays.push(new Uint8Array(byteNumbers));
                 }
-            });
-        } catch (error) {
-            ui.showToast(error.message, 'error');
-            ui.addLogMessage(`<b class="text-red-400">ERRO:</b> ${error.message}`, 'error');
-        } finally {
-            ui.setProcessingState(false, 'Gerar Novo Rascunho');
-            timer.stop();
+                return new Blob(byteArrays, { type: contentType });
+            } catch (e) {
+                console.error("Erro ao decodificar base64:", e);
+                throw new Error("Falha ao decodificar dados do arquivo.");
+            }
         }
-    }
-
-    function handleDraftUpload(event) {
-        state.draftFile = event.target.files[0];
-        if (!state.draftFile) return;
-        dom.draftFilename.textContent = state.draftFile.name;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet);
-            dom.reviewArea.innerHTML = '';
-            dom.disapprovedArea.innerHTML = '';
-            state.reviewItems = {};
-            json.forEach(ui.renderReviewCard);
-            ui.updateGlobalUI();
+        
+        // --- ESTADO DA APLICAÇÃO ---
+        const state = {
+            catalogFile: null, itemsFile: null, baseSpreadsheetFile: null, manualBulaFile: null,
+            reviewItems: {},
         };
-        reader.readAsArrayBuffer(state.draftFile);
-    }
 
-    async function handleFinalize(type) {
-        const itemsToFinalize = Object.values(state.reviewItems).filter(item => item.status === type);
-        if (itemsToFinalize.length === 0) return ui.showToast(`Nenhum item foi ${type}.`, 'error');
-        const requiredFile = type === 'approved' ? state.draftFile : state.itemsFile;
-        if (!requiredFile) return ui.showToast(`O arquivo de ${type === 'approved' ? 'rascunho' : 'itens'} é necessário.`, 'error');
+        // --- REFERÊNCIAS AO DOM ---
+        const dom = {};
         
-        ui.showToast(`Gerando planilha para ${itemsToFinalize.length} item(ns)...`);
-        const formData = new FormData();
-        const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
-        const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
-        const fileKey = type === 'approved' ? 'spreadsheet' : 'items_file';
+        const domIds = [
+            'catalog-upload', 'catalog-filename', 'items-upload', 'items-filename', 
+            'generate-draft-button', 'button-text-lote', 'button-loader-lote', 
+            'base-spreadsheet-upload', 'base-spreadsheet-filename', 'manual-product-name', 
+            'manual-ean-sku', 'manual-bula-upload', 'manual-bula-filename', 
+            'generate-manual-button', 'button-text-manual', 'button-loader-manual', 
+            'log-section', 'status-log', 'progress-section', 'progress-label', 
+            'progress-percentage', 'progress-bar-inner', 'curation-area', 'review-area', 
+            'approved-section', 'approved-area', 'disapproved-section', 'disapproved-area', 
+            'finalize-button', 'reprocess-button', 'finalize-disapproved-button', 
+            'toast-container', 'search-input', 'collapse-all-button', 'approve-all-button'
+        ];
         
-        formData.append(jsonKey, JSON.stringify(itemsToFinalize));
-        formData.append(fileKey, requiredFile);
+        const toCamelCase = (str) => str.replace(/-([a-z])/g, g => g[1].toUpperCase());
 
-        try {
-            const blob = await apiService.postRequest(endpoint, formData);
-            downloadBlob(blob, `planilha_${type}.xlsx`);
-            ui.showToast(`Planilha de ${type}s gerada com sucesso!`);
-        } catch (error) {
-            ui.showToast(error.message, 'error');
-        }
-    }
-
-    async function handleReprocess() {
-        const itemsToReprocess = Object.values(state.reviewItems).filter(item => item.status === 'disapproved');
-        if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados para reprocessar.', 'error');
-        if (!state.catalogFile) return ui.showToast('O arquivo de catálogo é necessário. Selecione-o na Etapa 1.', 'error');
+        domIds.forEach(id => {
+            const camelCaseId = toCamelCase(id);
+            dom[camelCaseId] = document.getElementById(id);
+        });
         
-        dom.logSection.classList.remove('hidden');
-        dom.statusLog.innerHTML = '';
-        ui.addLogMessage(`<b>Iniciando reprocessamento para ${itemsToReprocess.length} item(ns)...</b>`);
-        timer.start();
-        
-        const formData = new FormData();
-        formData.append('catalog_file', state.catalogFile);
-        formData.append('items_to_reprocess_json', JSON.stringify(itemsToReprocess));
+        dom.tabButtons = document.querySelectorAll('.tab-button');
+        dom.tabContents = document.querySelectorAll('.tab-content');
 
-        try {
-            await apiService.streamRequest('/reprocess-items', formData, (event, data) => {
-                if (event === 'log') {
-                    ui.addLogMessage(data.message, data.type);
-                } else if (event === 'done') {
-                    const sku = data['_EANSKU'];
-                    ui.addLogMessage(`Conteúdo regenerado para SKU ${sku}. Movido para revisão.`, 'success');
-                    ui.renderReviewCard(data);
+        // --- SERVIÇO DE API ---
+        const apiService = {
+            baseUrl: 'http://127.0.0.1:8000',
+            async postRequest(endpoint, formData) {
+                try {
+                    const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Erro desconhecido no servidor.' }));
+                        throw new Error(errorData.detail);
+                    }
+                    return response.blob();
+                } catch (networkError) {
+                    throw new Error('Falha de conexão com o servidor. Verifique se ele está rodando.');
                 }
-            });
-            ui.addLogMessage("<b>Reprocessamento concluído!</b>", "success");
-        } catch(error) {
-            ui.showToast(error.message, 'error');
-            ui.addLogMessage(`<b class="text-red-400">ERRO:</b> ${error.message}`, 'error');
-        } finally {
-            timer.stop();
+            },
+            async streamRequest(endpoint, formData, onEvent) {
+                try {
+                    const response = await fetch(`${this.baseUrl}${endpoint}`, { method: 'POST', body: formData });
+                    if (!response.ok) {
+                         const errorData = await response.json().catch(() => ({ detail: 'Erro desconhecido no servidor.' }));
+                        throw new Error(errorData.detail);
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value, { stream: true });
+                        chunk.split('\n\n').filter(line => line.trim()).forEach(line => {
+                            const event = line.match(/event: (.+)/)?.[1];
+                            const data = line.match(/data: (.+)/)?.[1];
+                            if (event && data) onEvent(event, JSON.parse(data));
+                        });
+                    }
+                } catch (networkError) {
+                    throw new Error('Falha de conexão com o servidor. Verifique se ele está rodando.');
+                }
+            }
+        };
+
+        // --- MANIPULAÇÃO DA UI ---
+        const ui = {
+            showToast(message, type = 'info') {
+                const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.innerHTML = `<i class="fas ${icons[type]} text-xl mr-3"></i><p class="font-medium">${message}</p>`;
+                dom.toastContainer.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000);
+            },
+            setProcessingState(isProcessing, flow = 'lote') {
+                const btn = flow === 'lote' ? dom.generateDraftButton : dom.generateManualButton;
+                const loader = flow === 'lote' ? dom.buttonLoaderLote : dom.buttonLoaderManual;
+                const textEl = flow === 'lote' ? dom.buttonTextLote : dom.buttonTextManual;
+                const originalText = flow === 'lote' ? 'Gerar Rascunho' : 'Gerar Conteúdo';
+                
+                btn.disabled = isProcessing;
+                textEl.textContent = isProcessing ? 'Processando...' : originalText;
+                loader.classList.toggle('hidden', !isProcessing);
+            },
+            addLogMessage(message, type = 'info') {
+                dom.logSection.classList.remove('hidden');
+                const colors = { info: 'text-gray-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
+                const time = new Date().toLocaleTimeString();
+                dom.statusLog.innerHTML += `<p class="${colors[type]}"><span class="text-cyan-400">[${time}]</span> ${message}</p>`;
+                dom.statusLog.scrollTop = dom.statusLog.scrollHeight;
+            },
+            updateProgressBar(current, total, sku) {
+                const percentage = total > 0 ? (current / total) * 100 : 0;
+                dom.progressBarInner.style.width = `${percentage}%`;
+                dom.progressPercentage.textContent = `${Math.round(percentage)}%`;
+                dom.progressLabel.innerHTML = `Processando: <b>${current} de ${total}</b> (SKU: ${sku})`;
+            },
+            analyzeHeadings(htmlContent) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+                const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+                const summary = { H1: 0, H2: 0, H3: 0, H4: 0, H5: 0, H6: 0 };
+                headings.forEach(h => summary[h.tagName.toUpperCase()]++);
+                let analysisHtml = (summary.H1 > 0)
+                    ? `<p class="text-red-600 font-bold"><i class="fas fa-exclamation-triangle mr-2"></i>Encontrada H1 (Proibido)</p>`
+                    : `<p class="text-green-600 font-bold"><i class="fas fa-check-circle mr-2"></i>Nenhuma H1 encontrada</p>`;
+                analysisHtml += `<p class="mt-2"><b>Resumo:</b> H2: ${summary.H2} | H3: ${summary.H3} | H4: ${summary.H4}</p>`;
+                return analysisHtml;
+            },
+            renderCard(item) {
+                const sku = String(item['_EANSKU'] || item.sku || '');
+                const productName = String(item['_NomeProduto (Obrigatório)'] || item.productName || 'Produto sem nome');
+                
+                if (!sku) {
+                    console.error("Item sem SKU/EAN encontrado, não será renderizado:", item);
+                    return;
+                }
+                if (document.getElementById(`card-${sku}`)) return;
+
+                state.reviewItems[sku] = { ...item, sku, productName, status: 'pending' };
+
+                const template = document.getElementById('review-card-template').content.cloneNode(true);
+                const card = template.firstElementChild;
+                card.id = `card-${sku}`;
+                card.dataset.sku = sku;
+                card.dataset.productName = productName;
+
+                card.querySelector('[data-name="sku"]').textContent = `SKU/EAN: ${sku}`;
+                card.querySelector('[data-name="productName"]').textContent = productName;
+                card.querySelector('[data-name="seoTitle"]').value = item.seo_title || item['_TituloSite'] || "";
+                card.querySelector('[data-name="metaDescription"]').value = item.meta_description || item['_DescricaoMetaTag'] || "";
+                
+                const htmlArea = card.querySelector('[data-name="htmlContent"]');
+                const preview = card.querySelector('[data-name="previewFrame"]');
+                const htmlContent = item.final_content || item['_DescricaoProduto'] || "";
+                htmlArea.value = htmlContent;
+                
+                try {
+                    preview.srcdoc = htmlContent;
+                } catch(e) {
+                    console.warn(`Erro ao setar srcdoc para SKU ${sku}: ${e}`);
+                    preview.srcdoc = `<p>Erro ao renderizar preview.</p>`;
+                }
+                
+                const tagAnalysisDiv = card.querySelector('[data-name="tags-analysis"]');
+                tagAnalysisDiv.innerHTML = this.analyzeHeadings(htmlContent);
+                
+                htmlArea.oninput = e => {
+                    preview.srcdoc = e.target.value;
+                    tagAnalysisDiv.innerHTML = this.analyzeHeadings(e.target.value);
+                };
+                
+                card.querySelector('[data-action="approve"]').onclick = () => handleItemAction(sku, 'approved');
+                card.querySelector('[data-action="disapprove"]').onclick = () => handleItemAction(sku, 'disapproved');
+                card.querySelector('[data-action="toggle"]').onclick = (e) => {
+                    const content = card.querySelector('.card-content');
+                    content.classList.toggle('collapsed');
+                    e.currentTarget.innerHTML = content.classList.contains('collapsed') 
+                        ? '<i class="fas fa-eye mr-1"></i> Mostrar' 
+                        : '<i class="fas fa-eye-slash mr-1"></i> Ocultar';
+                };
+                
+                dom.reviewArea.appendChild(card);
+            },
+            updateGlobalUI() {
+                const items = Object.values(state.reviewItems);
+                const hasApproved = items.some(i => i.status === 'approved');
+                const hasDisapproved = items.some(i => i.status === 'disapproved');
+
+                dom.finalizeButton.disabled = !hasApproved;
+                dom.reprocessButton.disabled = !hasDisapproved;
+                dom.finalizeDisapprovedButton.disabled = !hasDisapproved;
+                
+                dom.approvedSection.classList.toggle('hidden', !hasApproved);
+                dom.disapprovedSection.classList.toggle('hidden', !hasDisapproved);
+                dom.curationArea.classList.toggle('hidden', items.length === 0);
+            },
+            setupTabs() {
+                dom.tabButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const tabId = button.dataset.tab;
+                        dom.tabButtons.forEach(btn => btn.classList.remove('active'));
+                        button.classList.add('active');
+                        dom.tabContents.forEach(content => content.classList.toggle('active', content.id === `tab-content-${tabId}`));
+                    });
+                });
+            },
+            resetCurationArea() {
+                dom.reviewArea.innerHTML = ''; 
+                dom.approvedArea.innerHTML = ''; 
+                dom.disapprovedArea.innerHTML = '';
+                state.reviewItems = {};
+                this.updateGlobalUI();
+            }
+        };
+
+        // --- LÓGICA DE NEGÓCIO ---
+        function handleItemAction(sku, newStatus) {
+            const item = state.reviewItems[sku];
+            if (!item) return;
+            item.status = newStatus;
+
+            const card = document.getElementById(`card-${sku}`);
+            const actionsDiv = card.querySelector('[data-name="actions"]');
+            const statusBadge = card.querySelector('[data-name="statusBadge"]');
+            const feedbackSection = card.querySelector('[data-name="feedback-section"]');
+            
+            item.seoTitle = card.querySelector('[data-name="seoTitle"]').value;
+            item.metaDescription = card.querySelector('[data-name="metaDescription"]').value;
+            item.htmlContent = card.querySelector('[data-name="htmlContent"]').value;
+
+            actionsDiv.classList.add('hidden');
+            statusBadge.classList.remove('hidden');
+            
+            let badgeHtml = '';
+            if (newStatus === 'approved') {
+                badgeHtml = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">Aprovado</span>`;
+                dom.approvedArea.appendChild(card);
+                feedbackSection.classList.add('hidden');
+            } else if (newStatus === 'disapproved') {
+                badgeHtml = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800">Reprovado</span>`;
+                dom.disapprovedArea.appendChild(card);
+                feedbackSection.classList.remove('hidden');
+            } else {
+                statusBadge.classList.add('hidden');
+                actionsDiv.classList.remove('hidden');
+                dom.reviewArea.appendChild(card);
+                feedbackSection.classList.add('hidden');
+            }
+            
+            statusBadge.innerHTML = `${badgeHtml} <button data-action="undo" class="ml-2 text-sm text-sky-600 hover:underline">Desfazer</button>`;
+            statusBadge.querySelector('[data-action="undo"]').onclick = () => handleItemAction(sku, 'pending');
+
             ui.updateGlobalUI();
         }
-    }
-    
-    dom.catalogUpload.addEventListener('change', e => { state.catalogFile = e.target.files[0]; dom.catalogFilename.textContent = state.catalogFile?.name || 'Selecione o catálogo (.xlsx)'; });
-    dom.itemsUpload.addEventListener('change', e => { state.itemsFile = e.target.files[0]; dom.itemsFilename.textContent = state.itemsFile?.name || 'Selecione os itens a processar (.xlsx)'; });
-    dom.draftUpload.addEventListener('change', handleDraftUpload);
-    dom.generateDraftButton.addEventListener('click', handleGenerateDraft);
-    dom.finalizeButton.addEventListener('click', () => handleFinalize('approved'));
-    dom.finalizeDisapprovedButton.addEventListener('click', () => handleFinalize('disapproved'));
-    dom.reprocessButton.addEventListener('click', handleReprocess);
-});
+        
+        async function handleGenerate(flow) {
+            let formData = new FormData();
+            let endpoint = '';
+            
+            if (flow === 'lote') {
+                if (!state.catalogFile || !state.itemsFile) return ui.showToast('Selecione o catálogo e os itens a processar.', 'error');
+                formData.append('catalog_file', state.catalogFile);
+                formData.append('items_file', state.itemsFile);
+                endpoint = '/batch-process-and-generate-draft';
+            } else {
+                const productName = dom.manualProductName.value;
+                const eanSku = dom.manualEanSku.value;
+                if (!productName || !eanSku || !state.manualBulaFile) return ui.showToast('Preencha nome, EAN/SKU e anexe a bula.', 'error');
+                formData.append('product_name', productName);
+                formData.append('ean_sku', eanSku);
+                formData.append('bula_file', state.manualBulaFile);
+                endpoint = '/process-manual-single';
+            }
+
+            ui.setProcessingState(true, flow);
+            ui.resetCurationArea();
+            ui.addLogMessage(`Iniciando processamento...`);
+            if (flow === 'lote') dom.progressSection.classList.remove('hidden');
+
+            try {
+                await apiService.streamRequest(endpoint, formData, (event, data) => {
+                    if (event === 'log') ui.addLogMessage(data.message, data.type);
+                    else if (event === 'progress') ui.updateProgressBar(data.current, data.total, data.sku);
+                    else if (event === 'done' || event === 'done_manual') {
+                        // Adiciona a flag aqui
+                        if (flow === 'manual') data.isManual = true;
+                        ui.renderCard(data); 
+                        ui.updateGlobalUI();
+                    }
+                    else if (event === 'finished') {
+                        ui.addLogMessage(`<b>Processamento em lote concluído!</b> Baixando rascunho.`, 'success');
+                        const blob = base64ToBlob(data.file_data, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                        downloadBlob(blob, data.filename);
+                        ui.showToast('Rascunho gerado. Carregue-o na Etapa 2.', 'success');
+                    }
+                });
+            } catch (error) {
+                ui.addLogMessage(error.message, 'error');
+                ui.showToast(error.message, 'error');
+            } finally {
+                ui.setProcessingState(false, flow);
+                if(flow === 'lote') dom.progressSection.classList.add('hidden');
+            }
+        }
+
+        async function handleFinalize(type) {
+            const itemsToFinalize = Object.values(state.reviewItems).filter(i => i.status === type);
+            if (itemsToFinalize.length === 0) return ui.showToast(`Nenhum item ${type} para finalizar.`, 'info');
+            
+            const baseFile = state.baseSpreadsheetFile || state.itemsFile;
+            if (!baseFile) {
+                return ui.showToast(`Carregue a "Planilha Base para Finalização" para continuar.`, 'error');
+            }
+
+            ui.showToast(`Gerando planilha para ${itemsToFinalize.length} item(ns)...`, 'info');
+            const formData = new FormData();
+            const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
+            const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
+            
+            itemsToFinalize.forEach(item => {
+                const card = document.getElementById(`card-${item.sku}`);
+                if (card) {
+                    item.seoTitle = card.querySelector('[data-name="seoTitle"]').value;
+                    item.metaDescription = card.querySelector('[data-name="metaDescription"]').value;
+                    item.htmlContent = card.querySelector('[data-name="htmlContent"]').value;
+                }
+            });
+
+            formData.append(jsonKey, JSON.stringify(itemsToFinalize));
+            formData.append('spreadsheet', baseFile);
+
+            try {
+                const blob = await apiService.postRequest(endpoint, formData);
+                downloadBlob(blob, `planilha_final_${type}s.xlsx`);
+                ui.showToast(`Planilha de ${type}s gerada com sucesso!`, 'success');
+            } catch (error) {
+                ui.addLogMessage(error.message, 'error');
+                ui.showToast(error.message, 'error');
+            }
+        }
+        
+        async function handleReprocess() {
+            const itemsToReprocess = Object.values(state.reviewItems).filter(i => i.status === 'disapproved');
+            if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados para reprocessar.', 'info');
+
+            // Identifica se algum dos itens reprovados foi gerado manualmente
+            const isManualReprocess = itemsToReprocess.some(item => item.isManual);
+            
+            const formData = new FormData();
+
+            // Lógica de decisão para anexar bula ou catálogo
+            if (isManualReprocess) {
+                if (!state.manualBulaFile) {
+                    return ui.showToast('Para reprocessar um item manual, por favor, selecione novamente a bula na aba "Processar Item Manual".', 'error');
+                }
+                formData.append('bula_file', state.manualBulaFile);
+            } else {
+                if (!state.catalogFile) {
+                    return ui.showToast('O "Catálogo Geral" é necessário para reprocessar itens de lote.', 'error');
+                }
+                formData.append('catalog_file', state.catalogFile);
+            }
+
+            ui.addLogMessage(`<b>Iniciando reprocessamento para ${itemsToReprocess.length} item(ns)...</b>`, 'info');
+            itemsToReprocess.forEach(item => {
+                const card = document.getElementById(`card-${item.sku}`);
+                item.feedback = card.querySelector('[data-name="feedbackText"]').value;
+                // Adicionamos o conteúdo JSON bruto ao item para a IA ter o contexto
+                item.rawJsonContent = state.reviewItems[item.sku]?.raw_json_content || null;
+                card.remove();
+            });
+            ui.updateGlobalUI();
+
+            formData.append('items_to_reprocess_json', JSON.stringify(itemsToReprocess));
+            
+            try {
+                await apiService.streamRequest('/reprocess-items', formData, (event, data) => {
+                    if (event === 'log') ui.addLogMessage(data.message, data.type);
+                    else if (event === 'done') {
+                        const sku = data['_EANSKU'];
+                        ui.addLogMessage(`Conteúdo regenerado para SKU ${sku}. Movido para revisão.`, 'success');
+                        delete state.reviewItems[sku]; 
+                        // Marca o novo card como manual se a origem era manual
+                        if (isManualReprocess) data.isManual = true; 
+                        ui.renderCard(data);
+                    }
+                });
+                ui.showToast('Reprocessamento concluído!', 'success');
+            } catch(error) {
+                ui.addLogMessage(error.message, 'error');
+                ui.showToast(error.message, 'error');
+            } finally {
+                ui.updateGlobalUI();
+            }
+        }
+        
+        function setupEventListeners() {
+            const handleFileUpload = (e, stateKey, filenameEl) => {
+                const file = e.target.files[0];
+                const originalText = filenameEl.innerHTML;
+                if (file) {
+                    state[stateKey] = file;
+                    filenameEl.textContent = file.name;
+                } else {
+                    state[stateKey] = null;
+                    filenameEl.innerHTML = originalText;
+                }
+            };
+            
+            dom.catalogUpload.onchange = e => handleFileUpload(e, 'catalogFile', dom.catalogFilename);
+            dom.itemsUpload.onchange = e => handleFileUpload(e, 'itemsFile', dom.itemsFilename);
+            dom.manualBulaUpload.onchange = e => handleFileUpload(e, 'manualBulaFile', dom.manualBulaFilename);
+
+            dom.baseSpreadsheetUpload.onchange = e => { 
+                handleFileUpload(e, 'baseSpreadsheetFile', dom.baseSpreadsheetFilename);
+                if (state.baseSpreadsheetFile) {
+                    ui.showToast('Planilha base carregada para curadoria.', 'success');
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = new Uint8Array(event.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                            const json = XLSX.utils.sheet_to_json(worksheet);
+                            
+                            ui.resetCurationArea();
+                            json.forEach(ui.renderCard);
+                            ui.updateGlobalUI();
+                        } catch (readError) {
+                            ui.showToast('Erro ao ler o arquivo .xlsx. Verifique o formato.', 'error');
+                            console.error(readError);
+                        }
+                    };
+                    reader.readAsArrayBuffer(state.baseSpreadsheetFile);
+                }
+            };
+            
+            dom.generateDraftButton.onclick = () => handleGenerate('lote');
+            dom.generateManualButton.onclick = () => handleGenerate('manual');
+            dom.finalizeButton.onclick = () => handleFinalize('approved');
+            dom.finalizeDisapprovedButton.onclick = () => handleFinalize('disapproved');
+            dom.reprocessButton.onclick = handleReprocess;
+
+            dom.approveAllButton.onclick = () => {
+                Object.values(state.reviewItems).filter(i => i.status === 'pending').forEach(i => handleItemAction(i.sku, 'approved'));
+                ui.showToast('Todos os itens pendentes foram aprovados.', 'success');
+            };
+            dom.collapseAllButton.onclick = (e) => {
+                const button = e.currentTarget;
+                const isCollapsing = button.dataset.state !== 'collapsed';
+                document.querySelectorAll('#review-area .card-content, #approved-area .card-content, #disapproved-area .card-content').forEach(content => {
+                    const card = content.closest('.p-5');
+                    const toggleButton = card.querySelector('[data-action="toggle"]');
+                    if (isCollapsing) {
+                        content.classList.add('collapsed');
+                        toggleButton.innerHTML = '<i class="fas fa-eye mr-1"></i> Mostrar';
+                    } else {
+                        content.classList.remove('collapsed');
+                        toggleButton.innerHTML = '<i class="fas fa-eye-slash mr-1"></i> Ocultar';
+                    }
+                });
+                button.dataset.state = isCollapsing ? 'collapsed' : 'expanded';
+                button.innerHTML = isCollapsing 
+                    ? '<i class="fas fa-expand-alt mr-2"></i>Expandir Todos' 
+                    : '<i class="fas fa-compress-alt mr-2"></i>Recolher Todos';
+            };
+            dom.searchInput.oninput = (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                document.querySelectorAll('[data-sku]').forEach(card => {
+                    const name = card.dataset.productName.toLowerCase();
+                    const sku = card.dataset.sku;
+                    card.style.display = (name.includes(query) || sku.includes(query)) ? '' : 'none';
+                });
+            };
+        }
+        
+        // --- INICIALIZAÇÃO ---
+        ui.setupTabs();
+        setupEventListeners();
+        ui.updateGlobalUI();
+    });
 </script>
+
 </body>
 </html>

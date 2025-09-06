@@ -23,7 +23,7 @@ template: |
     - `transparency_note`: Vale 10 pts se a nota de transparência da Anvisa estiver presente.
   - **4. SEO de Varejo (30 pts):**
     - `seo_title_format`: Vale 15 pts.
-        - **(7.5 pts)** se o `seo_title` seguir o padrão `[Produto] [Dosagem] [Fabricante] [Quantidade]`.
+        - **(7.5 pts)** se o `seo_title` seguir o padrão `[Produto] [Dosagem] [Quantidade]`.
         - **(7.5 pts)** se o `seo_title` tiver **entre 50-65 caracteres**.
     - `meta_description_format`: Vale 15 pts.
         - **(5 pts)** se a `meta_description` tiver **entre 120-165 caracteres**.

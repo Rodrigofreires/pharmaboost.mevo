@@ -137,7 +137,6 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
                     if index != df_validos.index[-1]:
                         # CORREÇÃO: Aumentado o tempo de espera para 60 segundos para evitar o limite de requisições da API.
                         yield await _send_event("log", {"message": "Aguardando 60 segundos para evitar o limite de requisições da API...", "type": "info"})
-                        await asyncio.sleep(2)
 
             if resultados_finais:
                 df_resultados = pd.DataFrame(resultados_finais)
@@ -181,23 +180,31 @@ async def finalize_spreadsheet(spreadsheet: UploadFile = File(...), approved_dat
 
 
 @app.post("/finalize-disapproved-spreadsheet")
-async def finalize_disapproved_spreadsheet(items_file: UploadFile = File(...), disapproved_data_json: str = Form(...)):
+async def finalize_disapproved_spreadsheet(spreadsheet: UploadFile = File(...), disapproved_data_json: str = Form(...)):
+    """
+    Gera uma planilha contendo apenas as linhas dos produtos que foram reprovados.
+    CORREÇÃO: Alterado 'items_file' para 'spreadsheet' para padronizar com o frontend.
+    """
     try:
-        df_original = pd.read_excel(io.BytesIO(await items_file.read()), engine='openpyxl')
+        df_original = pd.read_excel(io.BytesIO(await spreadsheet.read()), engine='openpyxl')
         disapproved_data = json.loads(disapproved_data_json)
         if not disapproved_data:
-            raise HTTPException(status_code=400, detail="Nenhum item reprovado foi enviado.")
+            raise HTTPException(status_code=400, detail="Nenhum item reprovado enviado.")
 
-        disapproved_skus = [str(item[COLUNA_EAN_SKU]) for item in disapproved_data]
+        disapproved_skus = [str(item['sku']) for item in disapproved_data]
         df_original[COLUNA_EAN_SKU] = df_original[COLUNA_EAN_SKU].astype(str)
-        
+
         df_disapproved = df_original[df_original[COLUNA_EAN_SKU].isin(disapproved_skus)].copy()
 
         output_buffer = io.BytesIO()
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             df_disapproved.to_excel(writer, index=False, sheet_name='Reprovados')
-        
-        return Response(content=output_buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.sheet", headers={"Content-Disposition": "attachment; filename=planilha_reprovados.xlsx"})
+
+        return Response(
+            content=output_buffer.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.sheet",
+            headers={"Content-Disposition": "attachment; filename=planilha_reprovados.xlsx"}
+        )
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Erro ao gerar planilha de reprovados: {str(e)}")
