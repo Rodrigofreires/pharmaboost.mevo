@@ -134,6 +134,45 @@ def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
         return data
     return {"seo_score": 0, "score_breakdown": {"error": {"feedback": "Falha crítica na auditoria - JSON inválido."}}}
 
+def run_bula_extraction_agent(bula_text: str) -> Dict[str, Any] | None:
+    """
+    Executa o agente de IA para extrair dados estruturados de um texto de bula.
+
+    Args:
+        bula_text: O conteúdo textual completo da bula.
+
+    Returns:
+        Um dicionário com os dados extraídos ou None em caso de falha.
+    """
+    print("PIPELINE: Executing Bula Extraction Agent...")
+    if not bula_text or not bula_text.strip():
+        print("ERROR: Bula text is empty or invalid.")
+        return None
+
+    try:
+        # Usa o prompt manager para renderizar o novo prompt
+        prompt = _get_prompt_manager().render("extrator_bula", bula_text=bula_text)
+        
+        # Executa o prompt com a lógica de backoff existente
+        response_raw = _execute_prompt_with_backoff(prompt)
+        if response_raw is None:
+            print(f"ERROR: Bula Extraction Agent did not receive a response from the API.")
+            return None
+            
+        # Extrai o JSON da resposta
+        data = _extract_json_from_string(response_raw)
+        if data:
+            print(f"SUCCESS: Structured data extracted for a leaflet.")
+            return data
+        
+        print(f"ERROR: Bula Extraction Agent failed to extract valid JSON.")
+        return None
+
+    except Exception as e:
+        print(f"CRITICAL ERROR in Bula Extraction Agent: {e}")
+        traceback.print_exc()
+        return None
+
 # --- Orquestrador Principal da Pipeline ---
 async def run_seo_pipeline_stream(
     product_type: str,
