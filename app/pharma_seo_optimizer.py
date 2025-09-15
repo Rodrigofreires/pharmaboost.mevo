@@ -153,24 +153,26 @@ class SeoOptimizerAgent:
     def _finalize_for_vtex(html_content: str, product_name: str) -> str:
         """
         Garante que o HTML final seja um fragmento único, seguro para a V-TEX.
-        Remove tags globais e envolve todo o conteúdo na div pai com o CSS.
-        O 'product_name' é mantido para futuras lógicas, mas a correção de título
-        agora é feita diretamente pelo prompt.
+        Remove tags globais (html, head, body) e DOCTYPE, e envolve o conteúdo na div pai com o CSS.
         """
         if not isinstance(html_content, str):
             return ""
 
-        # A lógica de correção de título foi removida daqui, pois agora é
-        # responsabilidade do prompt.
         clean_html = SeoOptimizerAgent._clean_and_correct_html(html_content)
         
+        # Remove DOCTYPE para garantir que não passe
+        clean_html = re.sub(r'<!DOCTYPE[^>]*>', '', clean_html, re.IGNORECASE)
+
         soup = BeautifulSoup(clean_html, 'html.parser')
 
-        for tag in soup.find_all(['html', 'body', 'head', 'header', 'footer']):
+        # Procura e remove tags globais indesejadas, movendo o conteúdo delas para fora
+        for tag in soup.find_all(['html', 'body', 'head']):
             tag.unwrap()
 
+        # Transforma o conteúdo limpo de volta para string
         content_string = "".join(str(c) for c in soup.contents)
 
+        # Monta o bloco final com o estilo e a div encapsuladora
         final_html = f'''{SeoOptimizerAgent.MEVO_STYLE_BLOCK}
 <div class="descricao-produto">
 {content_string.strip()}

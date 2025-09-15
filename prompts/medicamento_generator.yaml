@@ -1,5 +1,5 @@
-name: "Gerador de Página de Produto v24 (SEO Otimizado)"
-description: "Gera um objeto JSON completo com novas regras de SEO para Título e Meta Descrição, incluindo a exclusão da marca e sufixo obrigatório."
+name: "Gerador de Página de Produto v25 (Limpeza de Template)"
+description: "Gera um objeto JSON completo com novas regras de SEO e um template de HTML limpo para evitar a inclusão de marcadores de seção."
 template: |
   # MISSÃO: GERAR CONTEÚDO ESTRUTURADO SEGUINDO A LAUDA MESTRA
 
@@ -14,15 +14,12 @@ template: |
   ---
 
   ## 3. SEU PROCESSO MENTAL E REGRAS DE SAÍDA
-  1.  **PRIMEIRO PASSO (NOME BASE):** Analise o "Nome Completo do Produto". Extraia apenas o nome principal do medicamento, sem dosagens ou volumes. Chame isso de `nome_base`. (Ex: de "Aldazida 50MG + 50MG Comprimido", o `nome_base` é "Aldazida").
-  2.  **SEGUNDO PASSO (GERAÇÃO):** Use o `nome_base` para construir os títulos da página, seguindo a lauda e as regras de títulos abaixo.
+  1.  **PRIMEIRO PASSO (NOME BASE):** Analise o "Nome Completo do Produto". Extraia apenas o nome principal do medicamento, sem dosagens ou volumes. Chame isso de `nome_base`.
+  2.  **SEGUNDO PASSO (GERAÇÃO):** Use o `nome_base` e a bula para construir o conteúdo HTML, seguindo a lauda e as regras de títulos abaixo.
   3.  **TERCEIRO PASSO (SAÍDA JSON):** Sua resposta final deve ser **APENAS UM OBJETO JSON VÁLIDO**, com as chaves: `seo_title`, `meta_description`, e `html_content`.
   4.  **REGRA DE TÍTULOS (SEO - MUITO IMPORTANTE):** Nenhum título `<h2>` ou `<h3>` deve começar com o nome do produto (`nome_base`). Integre o nome do produto no meio ou no final da frase de forma natural.
-      - **Exemplo RUIM:** `Cimegripe, para que serve?`
       - **Exemplo BOM:** `Para que serve o Cimegripe?`
-      - **Exemplo RUIM:** `Causa sono? - Cimegripe`
-      - **Exemplo BOM:** `O uso de Cimegripe causa sono?`
-  5.  **REGRA CRÍTICA DE LIMPEZA:** O HTML final gerado em `html_content` **NÃO PODE**, sob nenhuma circunstância, conter os textos "SEÇÃO 1", "SEÇÃO 2", etc.
+      - **Exemplo RUIM:** `Cimegripe, para que serve?`
 
   ## 4. LAUDA DE CONTEÚDO PARA "html_content" (ORDEM OBRIGATÓRIA E INVIOLÁVEL)
 
@@ -30,69 +27,48 @@ template: |
 
   --- INÍCIO DA ESTRUTURA HTML ---
 
-  ### SEÇÃO 1: O que é e Para que serve
-  - **Título (h2):** `<h2>Para que é indicado e para que serve o {{ nome_base }}?</h2>`
-  - **Conteúdo:** Parágrafos (`<p>`) e listas (`<ul>`) explicando as indicações.
+  <h2>Para que é indicado e para que serve o {{ nome_base }}?</h2>
+  <p>[Parágrafos explicando as indicações com base na bula]</p>
+  <ul><li>[Use listas quando apropriado]</li></ul>
 
-  ### SEÇÃO 2: Como Funciona
-  - **Título (h2):** `<h2>Como o {{ nome_base }} funciona?</h2>`
-  - **Conteúdo:** Explicação do mecanismo de ação.
+  <h2>Como o {{ nome_base }} funciona?</h2>
+  <p>[Explicação do mecanismo de ação com base na bula]</p>
 
-  ### SEÇÃO 3: Contraindicações
-  - **Título (h2):** `<h2>Quais as contraindicações do {{ nome_base }}?</h2>`
-  - **Conteúdo:** Lista (`<ul>`) ou parágrafos (`<p>`) das contraindicações.
+  <h2>Quais as contraindicações do {{ nome_base }}?</h2>
+  <p>[Parágrafos ou listas sobre as contraindicações]</p>
 
-  ### SEÇÃO 4: Como Usar (Posologia)
-  - **Título (h2):** `<h2>Como usar o {{ nome_base }}?</h2>`
-  - **Conteúdo:** Detalhes da posologia, usando `<h3>` para subseções.
+  <h2>Como usar o {{ nome_base }}?</h2>
+  <p>[Detalhes da posologia, usando <h3> para subseções se necessário]</p>
 
-  ### SEÇÃO 5: Composição
-  - **Título (h2):** `<h2>Qual a composição do {{ nome_base }}?</h2>`
-  - **Conteúdo:** Detalhes da composição.
+  <h2>Qual a composição do {{ nome_base }}?</h2>
+  <p>[Detalhes da composição do medicamento]</p>
 
-  ### SEÇÃO 6: Especificações (Tabela)
-  - **Título (h2):** `<h2>Especificações</h2>`
-  - **Conteúdo:** Uma tabela HTML (`<table>`) com **APENAS** estas três linhas: Fabricante, EAN SKU, Princípio Ativo, 
-  ### SEÇÃO 7: Perguntas Frequentes (FAQ com Accordion Aberto)
-  - **NÃO HAVERÁ UM TÍTULO PRINCIPAL PARA A FAQ.**
-  - **Conteúdo:** Crie de 3 a 5 perguntas relevantes. Cada pergunta deve seguir **EXATAMENTE** esta estrutura, garantindo que o título seja natural:
-    `<details open>`
-      `<summary><h2>[Faça uma pergunta natural, incluindo o nome {{ nome_base }} no meio ou final. Ex: "Posso tomar {{ nome_base }} com outros medicamentos?"]</h2></summary>`
-      `<p>[Resposta completa aqui.]</p>`
-    `</details>`
+  <h2>Especificações</h2>
+  <table>
+      <tr><td>Fabricante</td><td>[Extrair da bula ou deixar em branco]</td></tr>
+      <tr><td>EAN SKU</td><td>[Não preencher, será adicionado depois]</td></tr>
+      <tr><td>Princípio Ativo</td><td>[Extrair da bula]</td></tr>
+  </table>
 
-  ### SEÇÃO 8: Aviso Legal (Box)
-  - **Conteúdo:** A string HTML **EXATA**: `<div class="legal-notice-box"><p> {{ nome_base }} É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE UM MÉDICO OU UM FARMACÊUTICO. LEIA A BULA.</p></div>`
+  <details open>
+    <summary><h2>[Crie uma pergunta natural, incluindo o nome {{ nome_base }}]</h2></summary>
+    <p>[Resposta completa aqui.]</p>
+  </details>
+  <details open>
+    <summary><h2>[Crie uma segunda pergunta natural sobre o {{ nome_base }}]</h2></summary>
+    <p>[Resposta completa aqui.]</p>
+  </details>
 
-  ### SEÇÃO 9: Nota de Transparência
-  - **Conteúdo:** A string HTML **EXATA**, preenchendo apenas o MS: `<p class="transparency-note-final">As informações desta página foram extraídas da bula oficial de {{ nome_base }}, aprovada pela Anvisa. Consulte sempre um profissional de saúde e leia a bula. Registro MS: [Número do registro MS]</p>`
+  <div class="legal-notice-box"><p>{{ nome_base }} É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE UM MÉDICO OU UM FARMACÊUTICO. LEIA A BULA.</p></div>
+
+  <p class="transparency-note-final">As informações desta página foram extraídas da bula oficial de {{ nome_base }}, aprovada pela Anvisa. Consulte sempre um profissional de saúde e leia a bula. Registro MS: [Extrair número do registro MS da bula]</p>
 
   --- FIM DA ESTRUTURA HTML ---
 
-  ## 5. REGRAS PARA "seo_title" e "meta_description" (NOVAS REGRAS DE SEO)
+  ## 5. REGRAS PARA "seo_title" e "meta_description"
 
-  - **`seo_title`**: Crie um título otimizado (50-65 caracteres) seguindo o padrão: `[Nome do Produto] [Dosagem] [Quantidade] | Mevo Farma`.
-    - **REGRAS OBRIGATÓRIAS PARA O TÍTULO:**
-      1.  **NÃO inclua o nome da marca/fabricante** (Ex: Pfizer, Cimed, etc.).
-      2.  O título **DEVE OBRIGATORIAMENTE terminar com** ` | Mevo Farma`.
-      3.  Não use caracteres especiais desnecessários (como &). Acentuação da língua portuguesa é permitida.
-    - **Exemplo de Título:** `Aldazida 50mg 30 Comprimidos | Mevo Farma`
-
-  - **`meta_description`**: Crie uma meta descrição otimizada (120-165 caracteres) que seja atrativa e diferente do título.
-    - **REGRAS OBRIGATÓRIAS PARA A META DESCRIÇÃO:**
-      1.  O texto deve ser único, focando no principal benefício do produto de forma convidativa.
-      2.  A descrição **DEVE OBRIGATORIAMENTE terminar com a frase:** `Compre Agora na Mevo Farma.`
-    - **Exemplo de Meta Descrição:** `Encontre Aldazida 50mg com 30 comprimidos, um importante aliado para o controle da pressão alta e tratamentos diuréticos. Compre Agora na Mevo Farma.`
-
-  - **Instruções Adicionais:**
-    - Extraia as informações de `Dosagem`, `Quantidade` e o `Principal benefício` diretamente do texto da bula (`Fonte da Verdade`).
-    - Adapte o texto para que se encaixe nos limites de caracteres, mantendo a clareza e o padrão definido.
+  - **`seo_title`**: (50-65 caracteres) Padrão: `[Nome do Produto] [Dosagem] [Quantidade] | Mevo Farma`. **NÃO inclua a marca/fabricante**.
+  - **`meta_description`**: (120-165 caracteres) Foco no benefício. **Deve terminar com:** `Compre Agora na Mevo Farma.`
 
   ## 6. REGRA FINAL E OBRIGATÓRIA: SAÍDA JSON ESTRITA
-  Sua resposta deve ser **APENAS** um objeto JSON válido. Não inclua texto antes ou depois do JSON. A estrutura deve ser:
-  ```json
-  {
-    "seo_title": "...",
-    "meta_description": "...",
-    "html_content": "..."
-  }
+  Sua resposta deve ser **APENAS** um objeto JSON válido (começando com `{` e terminando com `}`).

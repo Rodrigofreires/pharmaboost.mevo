@@ -239,13 +239,13 @@
         <section id="review-section" class="bg-white p-6 md:p-8 rounded-xl shadow-md space-y-8">
             <h2 class="text-2xl font-bold text-slate-800 border-b border-slate-200 pb-4 flex items-center"><i class="fas fa-magic-wand-sparkles mr-3 text-teal-600"></i>Etapa 2: Curadoria e Finalização</h2>
             <div>
-                 <h3 class="text-lg font-semibold mb-2 text-slate-700">C. Planilha Base para Finalização (.xlsx)</h3>
+                 <h3 class="text-lg font-semibold mb-2 text-slate-700">C. Planilha Base para Finalização (.xlsx, .csv)</h3>
                  <p class="text-sm text-slate-500 mb-4">Carregue o rascunho gerado ou a planilha de "Itens a Processar". <b>É obrigatória para gerar os arquivos finais.</b></p>
                  <label for="base-spreadsheet-upload" class="file-label border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer">
                     <i class="fas fa-upload text-4xl mb-3"></i>
                     <span id="base-spreadsheet-filename" class="font-semibold">Arraste ou clique para selecionar a planilha base</span>
                 </label>
-                <input type="file" id="base-spreadsheet-upload" class="hidden" accept=".xlsx">
+                <input type="file" id="base-spreadsheet-upload" class="hidden" accept=".xlsx, .csv">
             </div>
             <div id="log-section" class="hidden mt-6">
                 <h3 class="text-lg font-semibold text-slate-700 mb-2">Log de Processamento</h3>
@@ -432,15 +432,35 @@
                     }
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
+                    let buffer = '';
+
                     while (true) {
                         const { value, done } = await reader.read();
                         if (done) break;
-                        const chunk = decoder.decode(value, { stream: true });
-                        chunk.split('\n\n').filter(line => line.trim()).forEach(line => {
-                            const event = line.match(/event: (.+)/)?.[1];
-                            const data = line.match(/data: (.+)/)?.[1];
-                            if (event && data) onEvent(event, JSON.parse(data));
-                        });
+                        
+                        buffer += decoder.decode(value, { stream: true });
+                        let boundary = buffer.indexOf('\n\n');
+
+                        while (boundary !== -1) {
+                            const message = buffer.substring(0, boundary);
+                            buffer = buffer.substring(boundary + 2);
+
+                            if (message.trim()) {
+                                const eventLine = message.split('\n').find(line => line.startsWith('event:'));
+                                const dataLine = message.split('\n').find(line => line.startsWith('data:'));
+
+                                if (eventLine && dataLine) {
+                                    const event = eventLine.substring(6).trim();
+                                    const data = dataLine.substring(5).trim();
+                                    try {
+                                        onEvent(event, JSON.parse(data));
+                                    } catch (e) {
+                                        console.error("Falha ao decodificar o JSON do evento:", data, e);
+                                    }
+                                }
+                            }
+                            boundary = buffer.indexOf('\n\n');
+                        }
                     }
                 } catch (networkError) {
                     throw new Error('Falha de conexão com o servidor. Verifique se ele está rodando.');
@@ -462,7 +482,7 @@
             setProcessingState(isProcessing, flow = 'lote') {
                 const btn = flow === 'lote' ? dom.generateDraftButton : dom.generateManualButton;
                 const loader = flow === 'lote' ? dom.buttonLoaderLote : dom.buttonLoaderManual;
-                const textEl = flow === 'lote' ? dom.buttonTextLote : dom.buttonTextManual;
+                const textEl = flow === 'lote' ? dom.buttonTextLote : dom.buttonTextManual; // CORREÇÃO AQUI
                 const originalText = flow === 'lote' ? 'Gerar Rascunho' : 'Gerar Conteúdo';
                 
                 btn.disabled = isProcessing;
@@ -471,9 +491,9 @@
             },
             addLogMessage(message, type = 'info') {
                 dom.logSection.classList.remove('hidden');
-                const colors = { info: 'text-slate-300', success: 'text-emerald-400', error: 'text-rose-400', warning: 'text-orange-400' }; /* Adjusted warning color */
+                const colors = { info: 'text-slate-300', success: 'text-emerald-400', error: 'text-rose-400', warning: 'text-orange-400' };
                 const time = new Date().toLocaleTimeString();
-                dom.statusLog.innerHTML += `<p class="${colors[type]}"><span class="text-teal-400">[${time}]</span> ${message}</p>`; /* Adjusted teal for log time */
+                dom.statusLog.innerHTML += `<p class="${colors[type]}"><span class="text-teal-400">[${time}]</span> ${message}</p>`;
                 dom.statusLog.scrollTop = dom.statusLog.scrollHeight;
             },
             updateProgressBar(current, total, sku) {
@@ -530,11 +550,11 @@
                 }
                 
                 const tagAnalysisDiv = card.querySelector('[data-name="tags-analysis"]');
-                tagAnalysisDiv.innerHTML = this.analyzeHeadings(htmlContent);
+                tagAnalysisDiv.innerHTML = ui.analyzeHeadings(htmlContent);
                 
                 htmlArea.oninput = e => {
                     preview.srcdoc = e.target.value;
-                    tagAnalysisDiv.innerHTML = this.analyzeHeadings(e.target.value);
+                    tagAnalysisDiv.innerHTML = ui.analyzeHeadings(e.target.value);
                 };
                 
                 card.querySelector('[data-action="approve"]').onclick = () => handleItemAction(sku, 'approved');
@@ -592,9 +612,10 @@
             const statusBadge = card.querySelector('[data-name="statusBadge"]');
             const feedbackSection = card.querySelector('[data-name="feedback-section"]');
             
-            item.seoTitle = card.querySelector('[data-name="seoTitle"]').value;
-            item.metaDescription = card.querySelector('[data-name="metaDescription"]').value;
-            item.htmlContent = card.querySelector('[data-name="htmlContent"]').value;
+            // Não precisa mais atualizar aqui, faremos isso ao finalizar
+            // item.seoTitle = card.querySelector('[data-name="seoTitle"]').value;
+            // item.metaDescription = card.querySelector('[data-name="metaDescription"]').value;
+            // item.htmlContent = card.querySelector('[data-name="htmlContent"]').value;
 
             actionsDiv.classList.add('hidden');
             statusBadge.classList.remove('hidden');
@@ -615,7 +636,7 @@
                 feedbackSection.classList.add('hidden');
             }
             
-            statusBadge.innerHTML = `${badgeHtml} <button data-action="undo" class="ml-2 text-sm text-teal-600 hover:underline">Desfazer</button>`; /* Adjusted undo color */
+            statusBadge.innerHTML = `${badgeHtml} <button data-action="undo" class="ml-2 text-sm text-teal-600 hover:underline">Desfazer</button>`;
             statusBadge.querySelector('[data-action="undo"]').onclick = () => handleItemAction(sku, 'pending');
 
             ui.updateGlobalUI();
@@ -650,7 +671,6 @@
                     if (event === 'log') ui.addLogMessage(data.message, data.type);
                     else if (event === 'progress') ui.updateProgressBar(data.current, data.total, data.sku);
                     else if (event === 'done' || event === 'done_manual') {
-                        // Adiciona a flag aqui
                         if (flow === 'manual') data.isManual = true;
                         ui.renderCard(data); 
                         ui.updateGlobalUI();
@@ -670,53 +690,59 @@
                 if(flow === 'lote') dom.progressSection.classList.add('hidden');
             }
         }
-
+        
+        // --- INÍCIO DA CORREÇÃO ---
         async function handleFinalize(type) {
-            const itemsToFinalize = Object.values(state.reviewItems).filter(i => i.status === type);
-            if (itemsToFinalize.length === 0) return ui.showToast(`Nenhum item ${type} para finalizar.`, 'info');
+            if (!state.baseSpreadsheetFile) {
+                 return ui.showToast(`Carregue a "Planilha Base para Finalização" para continuar.`, 'error');
+            }
+
+            const itemsToFilter = Object.values(state.reviewItems);
+            const itemsToFinalize = itemsToFilter.filter(i => i.status === type);
             
-            const baseFile = state.baseSpreadsheetFile || state.itemsFile;
-            if (!baseFile) {
-                return ui.showToast(`Carregue a "Planilha Base para Finalização" para continuar.`, 'error');
+            if (itemsToFinalize.length === 0) {
+                return ui.showToast(`Nenhum item ${type} para finalizar.`, 'info');
             }
 
             ui.showToast(`Gerando planilha para ${itemsToFinalize.length} item(ns)...`, 'info');
+
+            // Cria um array de objetos "limpos" contendo apenas o necessário
+            const cleanData = itemsToFinalize.map(item => {
+                const card = document.getElementById(`card-${item.sku}`);
+                return {
+                    sku: item.sku,
+                    seoTitle: card.querySelector('[data-name="seoTitle"]').value,
+                    metaDescription: card.querySelector('[data-name="metaDescription"]').value,
+                    htmlContent: card.querySelector('[data-name="htmlContent"]').value,
+                };
+            });
+            
             const formData = new FormData();
             const endpoint = type === 'approved' ? '/finalize-spreadsheet' : '/finalize-disapproved-spreadsheet';
             const jsonKey = type === 'approved' ? 'approved_data_json' : 'disapproved_data_json';
             
-            itemsToFinalize.forEach(item => {
-                const card = document.getElementById(`card-${item.sku}`);
-                if (card) {
-                    item.seoTitle = card.querySelector('[data-name="seoTitle"]').value;
-                    item.metaDescription = card.querySelector('[data-name="metaDescription"]').value;
-                    item.htmlContent = card.querySelector('[data-name="htmlContent"]').value;
-                }
-            });
-
-            formData.append(jsonKey, JSON.stringify(itemsToFinalize));
-            formData.append('spreadsheet', baseFile);
+            formData.append(jsonKey, JSON.stringify(cleanData));
+            formData.append('spreadsheet', state.baseSpreadsheetFile);
 
             try {
                 const blob = await apiService.postRequest(endpoint, formData);
-                downloadBlob(blob, `planilha_final_${type}s.xlsx`);
+                downloadBlob(blob, `planilha_${type}s.xlsx`);
                 ui.showToast(`Planilha de ${type}s gerada com sucesso!`, 'success');
             } catch (error) {
                 ui.addLogMessage(error.message, 'error');
                 ui.showToast(error.message, 'error');
             }
         }
+        // --- FIM DA CORREÇÃO ---
         
         async function handleReprocess() {
             const itemsToReprocess = Object.values(state.reviewItems).filter(i => i.status === 'disapproved');
             if (itemsToReprocess.length === 0) return ui.showToast('Não há itens reprovados para reprocessar.', 'info');
 
-            // Identifica se algum dos itens reprovados foi gerado manualmente
             const isManualReprocess = itemsToReprocess.some(item => item.isManual);
             
             const formData = new FormData();
 
-            // Lógica de decisão para anexar bula ou catálogo
             if (isManualReprocess) {
                 if (!state.manualBulaFile) {
                     return ui.showToast('Para reprocessar um item manual, por favor, selecione novamente a bula na aba "Processar Item Manual".', 'error');
@@ -730,16 +756,22 @@
             }
 
             ui.addLogMessage(`<b>Iniciando reprocessamento para ${itemsToReprocess.length} item(ns)...</b>`, 'info');
-            itemsToReprocess.forEach(item => {
+            const itemsToSubmit = itemsToReprocess.map(item => {
                 const card = document.getElementById(`card-${item.sku}`);
-                item.feedback = card.querySelector('[data-name="feedbackText"]').value;
-                // Adicionamos o conteúdo JSON bruto ao item para a IA ter o contexto
-                item.rawJsonContent = state.reviewItems[item.sku]?.raw_json_content || null;
-                card.remove();
+                card.remove(); // Remove o card antigo da UI
+                return {
+                    sku: item.sku,
+                    productName: item.productName,
+                    feedback: card.querySelector('[data-name="feedbackText"]').value,
+                    rawJsonContent: state.reviewItems[item.sku]?.raw_json_content || null
+                };
             });
+
+            // Remove os itens da lista principal de uma vez
+            itemsToSubmit.forEach(item => delete state.reviewItems[item.sku]);
             ui.updateGlobalUI();
 
-            formData.append('items_to_reprocess_json', JSON.stringify(itemsToReprocess));
+            formData.append('items_to_reprocess_json', JSON.stringify(itemsToSubmit));
             
             try {
                 await apiService.streamRequest('/reprocess-items', formData, (event, data) => {
@@ -747,8 +779,6 @@
                     else if (event === 'done') {
                         const sku = data['_EANSKU'];
                         ui.addLogMessage(`Conteúdo regenerado para SKU ${sku}. Movido para revisão.`, 'success');
-                        delete state.reviewItems[sku]; 
-                        // Marca o novo card como manual se a origem era manual
                         if (isManualReprocess) data.isManual = true; 
                         ui.renderCard(data);
                     }
@@ -765,7 +795,7 @@
         function setupEventListeners() {
             const handleFileUpload = (e, stateKey, filenameEl) => {
                 const file = e.target.files[0];
-                const originalText = filenameEl.innerHTML;
+                const originalText = filenameEl.innerHTML; // Salva o texto original do label
                 if (file) {
                     state[stateKey] = file;
                     filenameEl.textContent = file.name;
@@ -787,17 +817,26 @@
                     reader.onload = (event) => {
                         try {
                             const data = new Uint8Array(event.target.result);
-                            const workbook = XLSX.read(data, { type: 'array' });
+                            const workbook = XLSX.read(data, { type: 'array', bookVBA: true });
                             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                             const json = XLSX.utils.sheet_to_json(worksheet);
+                            
+                            if (json.length === 0) {
+                                throw new Error("A planilha parece estar vazia ou em um formato não reconhecido.");
+                            }
                             
                             ui.resetCurationArea();
                             json.forEach(ui.renderCard);
                             ui.updateGlobalUI();
                         } catch (readError) {
-                            ui.showToast('Erro ao ler o arquivo .xlsx. Verifique o formato.', 'error');
+                            const errorMessage = `Erro ao ler o arquivo. Verifique o formato. Detalhe: ${readError.message}`;
+                            ui.showToast(errorMessage, 'error');
                             console.error(readError);
                         }
+                    };
+                    reader.onerror = (error) => {
+                        ui.showToast('Não foi possível ler o arquivo.', 'error');
+                        console.error("FileReader error:", error);
                     };
                     reader.readAsArrayBuffer(state.baseSpreadsheetFile);
                 }
