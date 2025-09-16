@@ -1,4 +1,4 @@
-# app/pharma_seo_optimizer.py
+# app/pharma_seo_optimizer.py (Atualizado com FAQ aberto por padrão)
 
 import re
 from bs4 import BeautifulSoup
@@ -84,11 +84,11 @@ class SeoOptimizerAgent:
         outline: none;
         font-weight: bold; /* Garante que o texto dentro do summary seja negrito */
     }
-    .descricao-produto summary h2 {
-        font-size: 20px; /* Ajusta o tamanho do H2 dentro do accordion */
+    .descricao-produto summary h3 { /* MODIFICADO DE h2 PARA h3 */
+        font-size: 20px; /* Ajusta o tamanho do H3 dentro do accordion */
         font-weight: 700;
-        margin: 0; /* Remove margens do H2 para alinhar corretamente */
-        border: none; /* Remove a borda do H2 dentro do accordion */
+        margin: 0; /* Remove margens do H3 para alinhar corretamente */
+        border: none; /* Remove a borda do H3 dentro do accordion */
         padding: 0;
     }
     .descricao-produto summary::-webkit-details-marker {
@@ -150,29 +150,57 @@ class SeoOptimizerAgent:
         return cleaned_html
 
     @staticmethod
+    def _enrich_faq_structure(soup: BeautifulSoup) -> BeautifulSoup:
+        """
+        Encontra a seção de FAQ e envolve as perguntas (h3) e respostas (p)
+        em tags <details open> e <summary> para criar um accordion aberto por padrão.
+        """
+        faq_h2 = soup.find('h2', string=re.compile(r'Perguntas Frequentes', re.IGNORECASE))
+        if not faq_h2:
+            return soup
+
+        for element in faq_h2.find_next_siblings():
+            if element.name == 'h2' or element.name == 'div':
+                break
+            
+            if element.name == 'h3':
+                p_tag = element.find_next_sibling('p')
+                if p_tag:
+                    details_tag = soup.new_tag('details')
+                    details_tag['open'] = True  # <<< MUDANÇA PRINCIPAL AQUI
+                    summary_tag = soup.new_tag('summary')
+                    
+                    summary_tag.append(element.extract()) 
+                    
+                    details_tag.append(summary_tag)
+                    details_tag.append(p_tag.extract())
+                    
+                    faq_h2.insert_after(details_tag)
+        
+        return soup
+
+    @staticmethod
     def _finalize_for_vtex(html_content: str, product_name: str) -> str:
         """
         Garante que o HTML final seja um fragmento único, seguro para a V-TEX.
-        Remove tags globais (html, head, body) e DOCTYPE, e envolve o conteúdo na div pai com o CSS.
+        Remove tags globais, envolve o conteúdo e enriquece a estrutura do FAQ.
         """
         if not isinstance(html_content, str):
             return ""
 
         clean_html = SeoOptimizerAgent._clean_and_correct_html(html_content)
         
-        # Remove DOCTYPE para garantir que não passe
         clean_html = re.sub(r'<!DOCTYPE[^>]*>', '', clean_html, re.IGNORECASE)
 
         soup = BeautifulSoup(clean_html, 'html.parser')
 
-        # Procura e remove tags globais indesejadas, movendo o conteúdo delas para fora
         for tag in soup.find_all(['html', 'body', 'head']):
             tag.unwrap()
 
-        # Transforma o conteúdo limpo de volta para string
+        soup = SeoOptimizerAgent._enrich_faq_structure(soup)
+
         content_string = "".join(str(c) for c in soup.contents)
 
-        # Monta o bloco final com o estilo e a div encapsuladora
         final_html = f'''{SeoOptimizerAgent.MEVO_STYLE_BLOCK}
 <div class="descricao-produto">
 {content_string.strip()}

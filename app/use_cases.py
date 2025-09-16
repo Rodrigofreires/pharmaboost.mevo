@@ -1,4 +1,4 @@
-# app/use_cases.py (Versão 18.1 - Feedback Explícito)
+# app/use_cases.py (Versão 18.2 - Inicialização Otimizada e Singleton)
 import json
 from typing import Dict, Any, AsyncGenerator, Optional
 import asyncio
@@ -10,31 +10,19 @@ from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from .pharma_seo_optimizer import SeoOptimizerAgent
+from .prompt_manager import PromptManager
+from .gemini_client import GeminiClient
 
-# --- Funções Singleton ---
-_prompt_manager = None
-_gemini_client = None
-
-def _get_prompt_manager():
-    global _prompt_manager
-    if _prompt_manager is None:
-        from .prompt_manager import PromptManager
-        _prompt_manager = PromptManager()
-    return _prompt_manager
-
-def _get_gemini_client():
-    global _gemini_client
-    if _gemini_client is None:
-        from .gemini_client import GeminiClient
-        _gemini_client = GeminiClient()
-    return _gemini_client
+# --- INICIALIZAÇÃO ÚNICA E OTIMIZADA ---
+prompt_manager = PromptManager()
+gemini_client = GeminiClient()
 
 # --- Funções Auxiliares ---
 def _extract_json_from_string(text: str) -> Dict[str, Any]:
     if not text:
         print("ERROR: Texto de entrada para extração de JSON está vazio.")
         return None
-    json_match = re.search(r'```json\s*(\{.*?\})\s*```|(\{.*?\})', text, re.DOTALL)
+    json_match = re.search(r'```json\s*(\{.*?\})\s*```|(\{[\s\S]*\})', text, re.DOTALL)
     if json_match:
         json_str = json_match.group(1) or json_match.group(2)
         try:
@@ -56,7 +44,7 @@ def _execute_prompt_with_backoff(prompt: str, max_retries: int = 5) -> str | Non
     }
     for attempt in range(max_retries):
         try:
-            response = _get_gemini_client().model.generate_content(
+            response = gemini_client.model.generate_content(
                 prompt,
                 safety_settings=safety_settings
             )
@@ -80,7 +68,7 @@ def _execute_prompt_with_backoff(prompt: str, max_retries: int = 5) -> str | Non
 # --- Funções dos Agentes ---
 def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any] | None:
     print(f"PIPELINE: Executing Master Generator for '{product_name}'...")
-    prompt = _get_prompt_manager().render("medicamento_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
+    prompt = prompt_manager.render("medicamento_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
     response_raw = _execute_prompt_with_backoff(prompt)
     if response_raw is None:
         print(f"ERROR: Master Generator não recebeu resposta da API.")
@@ -93,8 +81,7 @@ def _run_master_generator_agent(product_name: str, product_info: dict) -> Dict[s
 
 def _run_refiner_agent(product_name: str, product_info: dict, previous_json: dict, feedback_data: dict) -> Dict[str, Any]:
     print(f"PIPELINE: Executing Refiner Agent for '{product_name}'...")
-    # ATUALIZAÇÃO: Passa as chaves do dicionário de feedback como argumentos nomeados explícitos.
-    prompt = _get_prompt_manager().render(
+    prompt = prompt_manager.render(
         "refinador_qualidade",
         product_name=product_name,
         bula_text=product_info.get("bula_text", ""),
@@ -115,7 +102,7 @@ def _run_refiner_agent(product_name: str, product_info: dict, previous_json: dic
 
 def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Dict[str, Any]:
     print(f"PIPELINE: All attempts failed. Executing Essentials Fallback Agent for '{product_name}'...")
-    prompt = _get_prompt_manager().render("essentials_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
+    prompt = prompt_manager.render("essentials_generator", product_name=product_name, product_info=product_info.get("bula_text", ""))
     html_content = _execute_prompt_with_backoff(prompt)
     if html_content is None or len(html_content) < 20:
         html_content = "<p>Falha crítica na geração de conteúdo.</p>"
@@ -125,7 +112,7 @@ def _run_essentials_generator_agent(product_name: str, product_info: dict) -> Di
 
 def _run_seo_auditor_agent(full_page_json: dict) -> Dict[str, Any]:
     print(f"PIPELINE: Executing Master Auditor...")
-    prompt = _get_prompt_manager().render("auditor_seo_tecnico", full_page_json=json.dumps(full_page_json, ensure_ascii=False))
+    prompt = prompt_manager.render("auditor_seo_tecnico", full_page_json=json.dumps(full_page_json, ensure_ascii=False))
     response_raw = _execute_prompt_with_backoff(prompt)
     if response_raw is None:
         return {"seo_score": 0, "score_breakdown": {"error": {"feedback": "Falha crítica na auditoria - sem resposta da API."}}}
@@ -212,7 +199,7 @@ async def run_seo_pipeline_stream(
 
         yield await _send_event("log", {"message": f"<b>Ciclos finalizados para '{product_name}'. Score máximo: {final_score}/100.</b>", "type": "info"})
 
-        final_html_vtex_safe = SeoOptimizerAgent._finalize_for_vtex(current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>"), product_name)
+        final_html_vtex_safe = await asyncio.to_thread(SeoOptimizerAgent._finalize_for_vtex, current_content_data.get("html_content", "<p>Conteúdo não gerado.</p>"), product_name)
 
         final_data_for_review = {
             "final_score": final_score,

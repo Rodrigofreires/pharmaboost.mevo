@@ -17,7 +17,7 @@ template: |
   - **2. Ordem e Conteúdo das Seções (40 pts):**
     - `section_order`: Vale 15 pts se os títulos `<h2>` seguirem a ordem correta.
     - `specifications_table`: Vale 10 pts se a tabela de especificações estiver correta.
-    - `faq_structure`: Vale 15 pts se a página contiver tags `<details open>` e `<summary>`.
+    - `faq_structure`: Vale 15 pts se a seção "Perguntas Frequentes" contiver uma sequência de títulos `<h3>` (para as perguntas) seguidos por parágrafos `<p>` (para as respostas).
   - **3. Avisos e Confiança (20 pts):**
     - `legal_notice`: Vale 10 pts se o aviso legal padrão estiver presente.
     - `transparency_note`: Vale 10 pts se a nota de transparência da Anvisa estiver presente.
