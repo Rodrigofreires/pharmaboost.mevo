@@ -1,12 +1,21 @@
-# api_automatizada.py (Versão 23.1 - Limpeza de Dados Pré-Merge)
+# api_automatizada.py (Versão 26.3 - Concorrência Máxima com Arranque Escalonado)
+
+import logging
+from config import settings
+from config.logging_config import setup_logging
+
+# Executa a configuração de logging ANTES de tudo
+setup_logging()
+
 import asyncio
 import io
 import json
 import os
-import traceback
-import gdown
+import re 
 import pandas as pd
 import openpyxl
+import requests
+from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -16,37 +25,42 @@ import base64
 
 from app import use_cases
 
+# Verificação para garantir que as chaves foram carregadas
+if not settings.API_KEY or not os.getenv("GOOGLE_API_KEY") or not os.getenv("GOOGLE_CSE_ID"):
+    logging.critical("ERRO CRÍTICO: Uma ou mais chaves de API não foram encontradas. A aplicação será encerrada.")
+    raise RuntimeError("ERRO CRÍTICO: Uma ou mais chaves de API (GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_CSE_ID) não foram encontradas. Verifique o seu ficheiro .env.")
+
 app = FastAPI(
     title="PharmaBoost Automation API",
     description="API para processamento com curadoria humana e feedback loop para IA.",
-    version="23.1-merge-first-clean"
+    version="26.3-staggered-start"
 )
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # --- Constantes ---
-MAX_CONCURRENT_REQUESTS = 50 
+MAX_CONCURRENT_REQUESTS = 50
+DOWNLOAD_SEMAPHORE = asyncio.Semaphore(10)
 COLUNA_EAN_SKU_ITENS = '_EANSKU'
 COLUNA_CODIGO_BARRAS_CATALOGO = 'CODIGO_BARRAS'
 COLUNA_NOME_PRODUTO = 'NOME'
 COLUNA_LINK_BULA = 'BULA'
 COLUNA_LINK_VALIDO = 'LINK_VALIDACAO'
 
-# Mantido como no original para a escrita final do arquivo
 COLUNAS_MODELO_XLS = [
-    '_IDSKU (Não alterável)', '_NomeSKU', '_AtivarSKUSePossível', 
-    '_SKUAtivo (Não alterável)', '_EANSKU', '_Altura', '_AlturaReal', 
-    '_Largura', '_LarguraReal', '_Comprimento', '_ComprimentoReal', 
-    '_Peso', '_PesoReal', '_UnidadeMedida', '_MultiplicadorUnidade', 
-    '_CodigoReferenciaSKU', '_ValorFidelidade', '_DataPrevisaoChegada', 
-    '_CodigoFabricante', '_IDProduto (Não alterável)', '_NomeProduto (Obrigatório)', 
-    '_BreveDescricaoProduto', '_ProdutoAtivo (Não alterável)', 
-    '_CodigoReferenciaProduto', '_MostrarNoSite', '_LinkTexto (Não alterável)', 
-    '_DescricaoProduto', '_DataLancamentoProduto', '_PalavrasChave', 
-    '_TituloSite', '_DescricaoMetaTag', '_IDFornecedor', 
-    '_MostrarSemEstoque', '_Kit (Não alterável)', '_IDDepartamento (Não alterável)', 
-    '_NomeDepartamento', '_IDCategoria', '_NomeCategoria', '_IDMarca', 
-    '_Marca', '_PesoCubico', '_CondicaoComercial', '_Lojas', 
+    '_IDSKU (Não alterável)', '_NomeSKU', '_AtivarSKUSePossível',
+    '_SKUAtivo (Não alterável)', '_EANSKU', '_Altura', '_AlturaReal',
+    '_Largura', '_LarguraReal', '_Comprimento', '_ComprimentoReal',
+    '_Peso', '_PesoReal', '_UnidadeMedida', '_MultiplicadorUnidade',
+    '_CodigoReferenciaSKU', '_ValorFidelidade', '_DataPrevisaoChegada',
+    '_CodigoFabricante', '_IDProduto (Não alterável)', '_NomeProduto (Obrigatório)',
+    '_BreveDescricaoProduto', '_ProdutoAtivo (Não alterável)',
+    '_CodigoReferenciaProduto', '_MostrarNoSite', '_LinkTexto (Não alterável)',
+    '_DescricaoProduto', '_DataLancamentoProduto', '_PalavrasChave',
+    '_TituloSite', '_DescricaoMetaTag', '_IDFornecedor',
+    '_MostrarSemEstoque', '_Kit (Não alterável)', '_IDDepartamento (Não alterável)',
+    '_NomeDepartamento', '_IDCategoria', '_NomeCategoria', '_IDMarca',
+    '_Marca', '_PesoCubico', '_CondicaoComercial', '_Lojas',
     '_Acessorios', '_Similares', '_Sugestoes', '_ShowTogether', '_Anexos'
 ]
 
@@ -60,46 +74,92 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         return "".join(page.extract_text() for page in reader.pages if page.extract_text())
     except Exception:
+        logging.error("Falha ao extrair texto de bytes de PDF.", exc_info=True)
         return ""
 
+def _convert_drive_url_to_download_url(url: str) -> Optional[str]:
+    """Converte um link de partilha do Google Drive num link de download direto."""
+    match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
+    if match:
+        file_id = match.group(1)
+        return f'https://drive.google.com/uc?export=download&id={file_id}'
+    return None
+
 async def get_bula_text_from_link(ean_sku: str, link_bula: str) -> str:
+    """
+    Descarrega a bula de qualquer link (Google Drive ou direto) usando apenas `requests`.
+    """
     os.makedirs('bulas_temp', exist_ok=True)
     output_path = f"bulas_temp/{ean_sku}.pdf"
-    try:
-        if not os.path.exists(output_path):
-            await asyncio.to_thread(gdown.download, str(link_bula), output_path, quiet=True, fuzzy=True)
-        with open(output_path, 'rb') as f:
-            return extract_text_from_pdf_bytes(f.read())
-    finally:
-        if os.path.exists(output_path):
-            os.remove(output_path)
+    download_url = link_bula
+
+    if "drive.google.com" in download_url:
+        logging.info(f"A converter link do Google Drive para SKU {ean_sku}")
+        download_url = _convert_drive_url_to_download_url(download_url)
+        if not download_url:
+            logging.error(f"Não foi possível extrair o ID do ficheiro do link do Google Drive para SKU {ean_sku}")
+            return ""
+
+    async with DOWNLOAD_SEMAPHORE:
+        try:
+            logging.info(f"A baixar bula (via requests diretos) para SKU {ean_sku}")
+            with requests.get(download_url, stream=True, timeout=30) as response:
+                response.raise_for_status()
+                
+                if 'text/html' in response.headers.get('Content-Type', ''):
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    confirm_link = soup.find('a', {'id': 'uc-download-link'})
+                    if confirm_link:
+                        confirm_url = 'https://drive.google.com' + confirm_link['href']
+                        logging.info(f"Link de confirmação encontrado. A seguir para {confirm_url}")
+                        response = requests.get(confirm_url, stream=True, timeout=30)
+                        response.raise_for_status()
+
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            with open(output_path, 'rb') as f:
+                return extract_text_from_pdf_bytes(f.read())
+
+        except Exception as e:
+            logging.error(f"Erro no download direto para SKU {ean_sku}: {e}", exc_info=False)
+            return ""
+
+        finally:
+            if os.path.exists(output_path):
+                os.remove(output_path)
 
 def read_spreadsheet(file_bytes: bytes, filename: str) -> pd.DataFrame:
     try:
+        logging.info(f"A ler a planilha: {filename}")
         if filename.lower().endswith('.csv'):
             return pd.read_csv(io.BytesIO(file_bytes), encoding='utf-8-sig', sep=',')
         else:
             return pd.read_excel(io.BytesIO(file_bytes), engine='openpyxl')
     except Exception as e:
+        logging.error(f"Não foi possível ler a planilha '{filename}'. Verifique o formato.", exc_info=True)
         raise ValueError(f"Não foi possível ler a planilha '{filename}'. Verifique o formato. Erro: {e}")
 
 # --- Endpoints ---
 
 @app.post("/batch-process-and-generate-draft")
 async def batch_process_stream(catalog_file: UploadFile = File(...), items_file: UploadFile = File(...)):
-    
+
     try:
         catalog_bytes = await catalog_file.read()
         items_bytes = await items_file.read()
         catalog_filename = catalog_file.filename
         items_filename = items_file.filename
+        logging.info("Ficheiros de lote recebidos com sucesso.")
     except Exception as e:
+        logging.error("Erro ao ler os ficheiros enviados.", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Erro ao ler os arquivos enviados: {e}")
 
     async def event_stream(cat_bytes, it_bytes, cat_filename, it_filename):
         resultados_finais = []
         summary = {'success': 0, 'skipped': 0, 'errors': 0}
-        
+
         async def worker(row, total_items, semaphore, queue, counter, summary_dict):
             async with semaphore:
                 ean_sku = str(row.get(COLUNA_EAN_SKU_ITENS.upper(), 'N/A'))
@@ -111,41 +171,45 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
 
                     is_valid = str(row.get(COLUNA_LINK_VALIDO.upper(), '')).strip().lower() == 'sim'
                     link_bula = row.get(COLUNA_LINK_BULA.upper())
-                    
+
                     if not is_valid:
+                        logging.warning(f"[SKU: {ean_sku}] Item não validado. Pulando.")
                         await queue.put(await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Item não validado (coluna '{COLUNA_LINK_VALIDO}' não é 'sim'). Pulando.", "type": "warning"}))
                         summary_dict['skipped'] += 1
                         return
 
                     if pd.isna(link_bula) or not str(link_bula).strip():
+                        logging.warning(f"[SKU: {ean_sku}] Link da bula ausente. Pulando.")
                         await queue.put(await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Link da bula ausente. Pulando.", "type": "warning"}))
                         summary_dict['skipped'] += 1
                         return
-                    
+
                     bula_text = await get_bula_text_from_link(ean_sku, link_bula)
                     if not bula_text.strip():
+                        logging.error(f"[SKU: {ean_sku}] Falha ao ler o PDF da bula. Pulando.")
                         await queue.put(await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Falha ao ler o PDF da bula. Pulando.", "type": "error"}))
                         summary_dict['errors'] += 1
                         return
-                    
+
                     async for chunk in use_cases.run_seo_pipeline_stream("medicine", nome_produto, {"bula_text": bula_text}):
                         await queue.put(chunk)
                         if "event: done" in chunk:
                             final_data = json.loads(chunk.split('data: ')[1])
-                            final_data[COLUNA_EAN_SKU_ITENS] = ean_sku 
+                            final_data[COLUNA_EAN_SKU_ITENS] = ean_sku
                             resultados_finais.append(final_data)
                             summary_dict['success'] += 1
 
                 except Exception as e:
                     summary_dict['errors'] += 1
+                    logging.exception(f"[SKU: {ean_sku}] Erro inesperado no worker.")
                     await queue.put(await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Erro inesperado no worker: {e}", "type": "error"}))
                 finally:
-                    await queue.put(None) 
-        
+                    await queue.put(None)
+
         try:
             df_catalogo = read_spreadsheet(cat_bytes, cat_filename)
             df_processar = read_spreadsheet(it_bytes, it_filename)
-            
+
             df_processar.columns = df_processar.columns.str.strip()
             df_catalogo.columns = df_catalogo.columns.str.strip()
 
@@ -155,11 +219,12 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
             final_count = len(df_processar)
 
             if initial_count > final_count:
+                logging.warning(f"{initial_count - final_count} linhas foram removidas da planilha de itens por não conterem um SKU válido.")
                 yield await _send_event("log", {"message": f"<b>AVISO:</b> {initial_count - final_count} linhas foram removidas da planilha de itens por não conterem um SKU válido.", "type": "warning"})
 
             df_processar[COLUNA_EAN_SKU_ITENS] = df_processar[COLUNA_EAN_SKU_ITENS].astype(str)
             df_catalogo[COLUNA_CODIGO_BARRAS_CATALOGO] = df_catalogo[COLUNA_CODIGO_BARRAS_CATALOGO].astype(str)
-            
+
             df_merged = pd.merge(
                 df_processar,
                 df_catalogo,
@@ -167,20 +232,28 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
                 right_on=COLUNA_CODIGO_BARRAS_CATALOGO,
                 how="left"
             )
-            
+
             df_merged.columns = df_merged.columns.str.upper()
 
             total_items = len(df_merged)
+            logging.info(f"Ficheiros lidos e unificados. {total_items} itens para processar.")
             yield await _send_event("log", {"message": f"Arquivos lidos e unificados. {total_items} itens para processar com até {MAX_CONCURRENT_REQUESTS} agentes em paralelo.", "type": "info"})
 
             queue = asyncio.Queue()
             semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
             processed_counter = [0]
-            
-            worker_tasks = [
-                asyncio.create_task(worker(row, total_items, semaphore, queue, processed_counter, summary))
-                for _, row in df_merged.iterrows()
-            ]
+
+            # --- INÍCIO DA SOLUÇÃO DE ARRANQUE ESCALONADO ---
+            # Em vez de criar todas as tarefas de uma vez, criamos um loop que
+            # adiciona um pequeno atraso entre o início de cada worker.
+            # Isto distribui o "pico" inicial de carga na API.
+            worker_tasks = []
+            for _, row in df_merged.iterrows():
+                task = asyncio.create_task(worker(row, total_items, semaphore, queue, processed_counter, summary))
+                worker_tasks.append(task)
+                await asyncio.sleep(0.05) # Atraso de 50ms entre cada arranque
+            # --- FIM DA SOLUÇÃO DE ARRANQUE ESCALONADO ---
+
 
             finished_workers = 0
             while finished_workers < total_items:
@@ -189,16 +262,19 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
                     finished_workers += 1
                 else:
                     yield item
-            
+
             await asyncio.gather(*worker_tasks)
 
             summary_message = f"<b>Processamento em lote finalizado.</b> Sumário: {summary['success']} com sucesso, {summary['skipped']} ignorados, {summary['errors']} com erro."
+            logging.info(f"Processamento em lote finalizado. Sumário: {summary}")
             yield await _send_event("log", {"message": summary_message, "type": "info"})
-            
+
             if not resultados_finais:
+                logging.warning("Nenhum produto foi processado com sucesso. O processo será finalizado sem gerar rascunho.")
                 yield await _send_event("log", {"message": "<b>AVISO:</b> Nenhum produto foi processado com sucesso. O processo será finalizado sem gerar rascunho.", "type": "warning"})
                 return
 
+            logging.info("A montar o rascunho para curadoria...")
             yield await _send_event("log", {"message": "<b>Montando o rascunho para curadoria...</b>", "type": "info"})
 
             resultados_finais_dict = {
@@ -208,25 +284,26 @@ async def batch_process_stream(catalog_file: UploadFile = File(...), items_file:
                     '_DescricaoProduto': res.get("final_content", "Erro")
                 } for res in resultados_finais
             }
-            
+
             df_itens_original = read_spreadsheet(it_bytes, it_filename)
-            
+
             for sku, updates in resultados_finais_dict.items():
                 mask = df_itens_original[COLUNA_EAN_SKU_ITENS].astype(str).str.strip() == str(sku).strip()
                 for col, value in updates.items():
                     if col in df_itens_original.columns:
                         df_itens_original.loc[mask, col] = value
-            
+
             output_buffer = io.BytesIO()
             df_itens_original.to_excel(output_buffer, index=False)
             file_data_b64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
+            logging.info("Rascunho gerado e enviado para o cliente.")
             yield await _send_event("finished", {"filename": "rascunho_para_revisao.xlsx", "file_data": file_data_b64})
 
         except Exception as e:
-            traceback.print_exc()
+            logging.exception("Erro fatal durante o processamento em lote.")
             error_message = f"Erro fatal durante o processamento em lote: {e}"
             yield await _send_event("log", {"message": error_message, "type": "error"})
-    
+
     return StreamingResponse(event_stream(catalog_bytes, items_bytes, catalog_filename, items_filename), media_type="text/event-stream")
 
 @app.post("/process-manual-single")
@@ -234,6 +311,7 @@ async def process_manual_single_stream(product_name: str = Form(...), ean_sku: s
     try:
         pdf_bytes = await bula_file.read()
     except Exception as e:
+        logging.error("Erro fatal ao ler o ficheiro para processamento manual.", exc_info=True)
         async def error_stream():
             yield await _send_event("log", {"message": f"Erro fatal ao ler o arquivo: {e}", "type": "error"})
         return StreamingResponse(error_stream(), media_type="text/event-stream")
@@ -242,9 +320,11 @@ async def process_manual_single_stream(product_name: str = Form(...), ean_sku: s
         try:
             bula_text = await asyncio.to_thread(extract_text_from_pdf_bytes, bytes_to_process)
             if not bula_text.strip():
+                logging.error(f"Não foi possível extrair texto do PDF para o SKU {ean_sku}.")
                 yield await _send_event("log", {"message": "<b>Erro Crítico:</b> Não foi possível extrair texto do PDF.", "type": "error"})
                 return
 
+            logging.info(f"PDF da bula para SKU {ean_sku} lido com sucesso.")
             yield await _send_event("log", {"message": f"PDF da bula lido com sucesso.", "type": "success"})
 
             async for chunk in use_cases.run_seo_pipeline_stream("medicine", product_name, {"bula_text": bula_text}):
@@ -255,12 +335,13 @@ async def process_manual_single_stream(product_name: str = Form(...), ean_sku: s
                         final_data['_NomeProduto (Obrigatório)'] = product_name
                         yield await _send_event("done_manual", final_data)
                     except Exception as e:
+                         logging.exception(f"Erro ao reempacotar dados para o SKU {ean_sku}.")
                          yield await _send_event("log", {"message": f"Erro ao reempacotar dados: {e}", "type": "error"})
                 else:
                     yield chunk
 
         except Exception as e:
-            traceback.print_exc()
+            logging.exception(f"Erro fatal durante o processamento manual para o SKU {ean_sku}.")
             yield await _send_event("log", {"message": f"ERRO FATAL (Manual): {e}", "type": "error"})
 
     return StreamingResponse(event_stream(pdf_bytes), media_type="text/event-stream")
@@ -278,27 +359,28 @@ async def finalize_spreadsheet(approved_data_json: str = Form(...), spreadsheet:
         df_updates.rename(columns={'sku': '_EANSKU', 'seoTitle': '_TituloSite', 'metaDescription': '_DescricaoMetaTag', 'htmlContent': '_DescricaoProduto'}, inplace=True)
         df_updates['_EANSKU'] = df_updates['_EANSKU'].apply(lambda x: str(x).split('.')[0].strip())
         df_updates = df_updates.drop_duplicates(subset=['_EANSKU'], keep='last')
-        
+
         df_base = pd.read_excel(io.BytesIO(await spreadsheet.read()), engine='openpyxl')
         df_base = df_base.loc[:, ~df_base.columns.duplicated()]
         df_base['_EANSKU'] = df_base['_EANSKU'].apply(lambda x: str(x).split('.')[0].strip())
         df_base = df_base.drop_duplicates(subset=['_EANSKU'], keep='first')
-        
+
         df_base_sem_conteudo = df_base.drop(columns=['_TituloSite', '_DescricaoMetaTag', '_DescricaoProduto'], errors='ignore')
-        
+
         df_final = pd.merge(df_base_sem_conteudo, df_updates, on='_EANSKU', how="inner")
-        
+
         for col in COLUNAS_MODELO_XLS:
             if col not in df_final.columns:
                 df_final[col] = None
         df_final = df_final[COLUNAS_MODELO_XLS]
-        
+
         output_buffer = io.BytesIO()
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             df_final.to_excel(writer, index=False, sheet_name='Aprovados')
+        logging.info(f"Planilha de {len(df_final)} itens aprovados gerada com sucesso.")
         return Response(content=output_buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.sheet", headers={"Content-Disposition": "attachment; filename=planilha_aprovados.xlsx"})
     except Exception as e:
-        traceback.print_exc()
+        logging.exception("Erro ao finalizar a planilha de aprovados.")
         raise HTTPException(status_code=500, detail=f"Erro ao finalizar planilha de aprovados: {str(e)}")
 
 @app.post("/finalize-disapproved-spreadsheet")
@@ -310,17 +392,18 @@ async def finalize_disapproved_spreadsheet(spreadsheet: UploadFile = File(...), 
         if not disapproved_data:
             raise HTTPException(status_code=400, detail="Nenhum item reprovado enviado.")
         disapproved_skus = [str(item['sku']).split('.')[0].strip() for item in disapproved_data]
-        
+
         df_original['_EANSKU'] = df_original['_EANSKU'].apply(lambda x: str(x).split('.')[0].strip())
-        
+
         df_disapproved = df_original[df_original['_EANSKU'].isin(disapproved_skus)].copy()
-        
+
         output_buffer = io.BytesIO()
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             df_disapproved.to_excel(writer, index=False, sheet_name='Reprovados')
+        logging.info(f"Planilha de {len(df_disapproved)} itens reprovados gerada com sucesso.")
         return Response(content=output_buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.sheet", headers={"Content-Disposition": "attachment; filename=planilha_reprovados.xlsx"})
     except Exception as e:
-        traceback.print_exc()
+        logging.exception("Erro ao gerar a planilha de reprovados.")
         raise HTTPException(status_code=500, detail=f"Erro ao gerar planilha de reprovados: {str(e)}")
 
 @app.post("/reprocess-items")
@@ -335,6 +418,7 @@ async def reprocess_items(
         bula_bytes = await bula_file.read() if bula_file else None
         catalog_filename = catalog_file.filename if catalog_file else None
     except Exception as e:
+        logging.error("Erro ao ler ficheiros ou dados para reprocessamento.", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Erro ao ler os arquivos ou dados: {e}")
 
     async def event_stream(it_to_reprocess, cat_bytes, b_bytes, cat_filename):
@@ -346,6 +430,7 @@ async def reprocess_items(
             df_catalogo = read_spreadsheet(cat_bytes, cat_filename)
             df_catalogo.columns = df_catalogo.columns.str.strip().str.upper()
             df_catalogo[COLUNA_CODIGO_BARRAS_CATALOGO] = df_catalogo[COLUNA_CODIGO_BARRAS_CATALOGO].astype(str)
+
         for item in it_to_reprocess:
             ean_sku = str(item.get("sku"))
             nome_produto = item.get("productName")
@@ -353,6 +438,9 @@ async def reprocess_items(
             previous_content = item.get("rawJsonContent")
             bula_text = ""
             source_found = False
+
+            logging.info(f"A iniciar reprocessamento para SKU: {ean_sku} com feedback: '{feedback}'")
+
             if bula_text_manual:
                 bula_text = bula_text_manual
                 source_found = True
@@ -360,10 +448,12 @@ async def reprocess_items(
             elif df_catalogo is not None:
                 catalog_info_row = df_catalogo[df_catalogo[COLUNA_CODIGO_BARRAS_CATALOGO] == ean_sku]
                 if catalog_info_row.empty:
+                    logging.warning(f"[SKU: {ean_sku}] SKU não encontrado no arquivo de catálogo. Pulando reprocessamento.")
                     yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> AVISO: SKU não encontrado no arquivo de catálogo. Pulando.", "type": "warning"})
                     continue
                 link_bula = catalog_info_row.iloc[0].get(COLUNA_LINK_BULA.upper())
                 if pd.isna(link_bula) or not str(link_bula).strip():
+                    logging.warning(f"[SKU: {ean_sku}] Link da bula não encontrado no catálogo. Pulando reprocessamento.")
                     yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> AVISO: Link da bula não encontrado no catálogo para este SKU. Pulando.", "type": "warning"})
                     continue
                 yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Buscando bula no catálogo para reprocessar...", "type": "info"})
@@ -371,11 +461,15 @@ async def reprocess_items(
                 if bula_text.strip():
                     source_found = True
                 else:
+                    logging.error(f"[SKU: {ean_sku}] Falha ao extrair texto do PDF do link da bula. Pulando reprocessamento.")
                     yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> ERRO: Falha ao extrair texto do PDF do link da bula. Pulando.", "type": "error"})
                     continue
+
             if not source_found:
+                 logging.error(f"[SKU: {ean_sku}] Nenhuma fonte de bula válida para reprocessamento. Pulando.")
                  yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> ERRO: Nenhuma fonte de bula (arquivo ou catálogo) fornecida ou válida para reprocessamento. Pulando.", "type": "error"})
                  continue
+
             yield await _send_event("log", {"message": f"<b>[SKU: {ean_sku}]</b> Fonte da bula encontrada. Acionando pipeline da IA...", "type": "info"})
             async for chunk in use_cases.run_seo_pipeline_stream("medicine", nome_produto, {"bula_text": bula_text}, previous_content=previous_content, feedback_text=feedback):
                 if "event: done" in chunk:
@@ -385,3 +479,4 @@ async def reprocess_items(
                 yield chunk
 
     return StreamingResponse(event_stream(items_to_reprocess, catalog_bytes, bula_bytes, catalog_filename), media_type="text/event-stream")
+

@@ -1,11 +1,10 @@
-# pharmaBoost/prompts/refinador_qualidade.yaml
-name: "Agente Refinador de Qualidade v10 (Diretrizes de Fluência Mevofarma)"
-description: "Recebe um JSON de produto e o feedback, reconstruindo o conteúdo para seguir estritamente a Lauda Mestra de fluência e concisão."
+name: "Agente Refinador de Qualidade v15 (Correção Guiada por Feedback)"
+description: "Reconstrói o conteúdo aplicando o feedback específico do auditor, com foco em usar bullet points para corrigir a verbosidade, mantendo a estrutura original."
 template: |
-  # MISSÃO: CORRIGIR UM PRODUTO APLICANDO FEEDBACK DENTRO DA ESTRUTURA MESTRA
+  # MISSÃO: CORRIGIR UM PRODUTO APLICANDO A ESTRUTURA MESTRA COM FOCO NA LEITURA
 
   ## 1. SUA PERSONA
-  Você é um especialista sênior em SEO e Conteúdo Farmacêutico da Mevofarma, focado em controle de qualidade. Sua tarefa é reconstruir o conteúdo para que ele siga perfeitamente as diretrizes de "Estrutura e Fluência de Conteúdo", com ênfase em **concisão e clareza**.
+  Você é um especialista sênior em SEO e Conteúdo Farmacêutico, focado em controlo de qualidade. A sua tarefa é reconstruir o conteúdo para que ele siga perfeitamente a estrutura definida, com alta legibilidade.
 
   ## 2. DADOS DE ENTRADA
   - **Nome do Produto:** {{ product_name }}
@@ -17,7 +16,7 @@ template: |
   ---
   {{ previous_json }}
   ---
-  - **Dados de Feedback (Sua principal diretriz para correção):**
+  - **Dados de Feedback (Seu Guia de Correção):**
   ---
   {% if feedback_usuario %}
   **Feedback do Usuário (Prioridade Alta):** {{ feedback_usuario }}
@@ -26,10 +25,10 @@ template: |
   {% endif %}
   ---
 
-  ## 3. SUA TAREFA: RECONSTRUÇÃO INTELIGENTE E CONCISA
-  Seu objetivo é gerar um novo objeto JSON que siga perfeitamente a estrutura da Lauda Mestra.
-  1.  **ANALISE O FEEDBACK:** Entenda qual seção ou informação precisa ser corrigida.
-  2.  **RECONSTRUA O CONTEÚDO:** Crie um novo `html_content` do zero, seguindo rigorosamente a **LAUDA MESTRA** abaixo. **SUMARIZE** as informações da bula, não copie textos longos. Use parágrafos curtos e listas.
+  ## 3. SUA TAREFA: RECONSTRUÇÃO ESTRITA GUIADA PELO FEEDBACK
+  O seu objetivo é gerar um novo objeto JSON que corrija **TODOS** os erros apontados na "Análise do Auditor".
+  - **Se o feedback criticar a `conciseness_and_readability` por falta de bullet points, sua PRIORIDADE MÁXIMA é reescrever as seções "Efeitos Colaterais" e "Contraindicações" usando listas `<ul>` curtas (máximo 5 itens).**
+  - Siga **exatamente** a estrutura da Lauda Mestra abaixo para a reconstrução.
 
   ## 4. LAUDA MESTRA (ESTRUTURA OBRIGATÓRIA PARA `html_content`)
 
@@ -38,45 +37,40 @@ template: |
   <h2>{{ nome_base }}: Indicações de uso</h2>
 
   <h3>Para que serve?</h3>
-  <p>[SUMARIZE as indicações de forma clara e objetiva com base na bula.]</p>
+  <p>[SUMARIZE as indicações, corrigindo se necessário.]</p>
 
   <h3>Posologia: Como usar o {{ nome_base }}?</h3>
-  <p>[SUMARIZE os detalhes da posologia, corrigindo conforme o feedback se aplicável. Use listas.]</p>
+  <p>[SUMARIZE a posologia, corrigindo se necessário.]</p>
 
   <h2>Cuidados no uso de {{ nome_base }}</h2>
 
   <h3>Efeitos Colaterais</h3>
-  <p>[SUMARIZE em uma lista `<ul>` os efeitos colaterais mais importantes da bula.]</p>
+  [Crie uma lista `<ul>` com no máximo 5 `<li>` resumindo os efeitos colaterais mais importantes. Pode adicionar um parágrafo curto de introdução, se necessário.]
 
-  <h3>Contraindicações no uso de {{ nome_base }}</h3>
-  <p>[SUMARIZE em uma lista `<ul>` as contraindicações mais importantes da bula.]</p>
+  <h3>Contraindicações</h3>
+  [Crie uma lista `<ul>` com no máximo 5 `<li>` resumindo as contraindicações principais. Pode adicionar um parágrafo curto de introdução, se necessário.]
 
   <h2>{{ nome_base }}: Especificações</h2>
   <table>
-      <tr><td>Marca</td><td>[Preencher com a marca/laboratório com base na bula]</td></tr>
+      <tr><td>Marca</td><td>[Preencher com base na bula]</td></tr>
       <tr><td>Princípio Ativo</td><td>[Preencher com base na bula]</td></tr>
       <tr><td>Composição</td><td>[Preencher com base na bula]</td></tr>
   </table>
 
   <h2>Perguntas Frequentes sobre {{ nome_base }}</h2>
+  
+  [Crie de 3 a 5 perguntas e respostas COMPLEMENTARES, baseadas na pesquisa de dúvidas e evitando os tópicos já cobertos.]
 
-  <h3>[Crie uma pergunta e resposta direta sobre o tema do feedback, se possível]</h3>
-  <p>[Resposta curta e direta (1-3 frases).]</p>
-  <h3>[Crie outra pergunta e resposta complementar]</h3>
-  <p>[Resposta curta e direta (1-3 frases).]</p>
+  <div class="legal-notice-box"><p>{{ nome_base | upper }} É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE UM MÉDICO OU UM FARMACÊUTICO. LEIA A BULA.</p></div>
 
-  <div class="legal-notice-box"><p> [nome_base] É UM MEDICAMENTO. SEU USO PODE TRAZER RISCOS. PROCURE UM MÉDICO OU UM FARMACÊUTICO. LEIA A BULA.</p></div>
-
-  <p class="transparency-note-final">As informações desta página foram extraídas da bula oficial de [nome_base], aprovada pela Anvisa. Consulte sempre um profissional de saúde e leia a bula. Registro MS: [Número do registro MS]</p>
+  <p class="transparency-note-final">As informações desta página foram extraídas da bula oficial de {{ nome_base }}, aprovada pela Anvisa. Consulte sempre um profissional de saúde e leia a bula. Registro MS: [Número do registro MS]</p>
 
   --- FIM DA ESTRUTURA HTML ---
 
   ## 5. REGRAS DE SEO
-  - Corrija o `seo_title` e `meta_description` conforme as regras:
-  - **`seo_title`**: (50-65 caracteres) Padrão: `[Nome do Produto] [Dosagem] [Quantidade] | Mevo Farma`.
-  - **`meta_description`**: (120-165 caracteres) Foco no benefício. **Deve terminar com:** `Compre Agora na Mevo Farma.`
+  - Corrija o `seo_title` e `meta_description` conforme as regras apontadas no feedback.
 
   ## 6. SAÍDA
-  Sua resposta deve ser **APENAS o novo objeto JSON corrigido e completo**.
+  A sua resposta deve ser **APENAS o novo objeto JSON corrigido e completo**.
 
   --- INICIE A RECONSTRUÇÃO DO OBJETO JSON AGORA ---
