@@ -1,113 +1,76 @@
-# app/google_search.py (Versão com Backoff Exponencial)
+# app/google_search.py (Versão 2.0 - Corrigido com @staticmethod)
+import os
 import logging
-import time
-from typing import List, NamedTuple
-import requests
-from config import settings
-
-# Estrutura para manter os resultados organizados
-class SearchResult(NamedTuple):
-    source_title: str
-    snippet: str
-
-class QueryResult(NamedTuple):
-    query: str
-    results: List[SearchResult]
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from typing import List, Dict, Any
 
 class GoogleSearch:
     """
-    Realiza buscas utilizando a API Google Custom Search JSON,
-    com cache, atraso e um sistema de backoff exponencial para lidar com erros de limite de taxa (429).
+    Uma classe para interagir com a API de Pesquisa Personalizada do Google.
     """
+    API_KEY = os.getenv("GOOGLE_API_KEY")
+    CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
-    def __init__(self):
-        self.api_key = settings.GOOGLE_API_KEY
-        self.cse_id = settings.GOOGLE_CSE_ID
-        self.search_url = "https://www.googleapis.com/customsearch/v1"
-        self.cache = {}
-        # Aumentar o delay inicial ajuda a espaçar as requisições
-        self.REQUEST_DELAY_SECONDS = 1  # Atraso de 250ms
-
-        if not self.api_key or not self.cse_id:
-            raise ValueError(
-                "As variáveis de ambiente GOOGLE_API_KEY e GOOGLE_CSE_ID não foram encontradas."
-            )
-
-    def search(self, queries: List[str]) -> List[QueryResult]:
+    @staticmethod
+    def search(queries: List[str]) -> List[Dict[str, Any]]:
         """
-        Executa uma lista de buscas e retorna os resultados, utilizando o cache.
+        Realiza buscas no Google para uma lista de consultas.
+
+        Args:
+            queries: Uma lista de strings de consulta para buscar.
+
+        Returns:
+            Uma lista de dicionários, cada um contendo os resultados para uma consulta.
         """
-        all_results = []
-        for query in queries:
-            if query in self.cache:
-                logging.info(f"Cache HIT para a busca: '{query}'")
-                all_results.append(self.cache[query])
-                continue
+        if not GoogleSearch.API_KEY or not GoogleSearch.CSE_ID:
+            logging.error("Chave de API do Google ou ID do CSE não configurados.")
+            # Retorna uma estrutura vazia para evitar que a pipeline quebre
+            return [{"query": q, "items": [], "related_questions": [], "related_searches": []} for q in queries]
 
-            logging.info(f"Cache MISS para a busca: '{query}'. A contactar a API...")
-
-           
-            max_retries = 4
-            backoff_factor = 2
-            wait_time = 1 
-
-            for attempt in range(max_retries):
+        results = []
+        try:
+            # AVISO: O cache_discovery=False é importante em ambientes de desenvolvimento
+            # para evitar problemas de cache entre reinicializações.
+            service = build("customsearch", "v1", developerKey=GoogleSearch.API_KEY, cache_discovery=False)
+            for query in queries:
                 try:
-                    time.sleep(self.REQUEST_DELAY_SECONDS)
-
-                    params = {
-                        "key": self.api_key,
-                        "cx": self.cse_id,
-                        "q": query,
-                        "num": 5,
-                    }
-                    response = requests.get(self.search_url, params=params)
+                    # Usamos 'relatedSite:www.googleapis.com' como um truque para obter 'relatedSearches'
+                    # A API oficial não retorna 'People Also Ask' de forma consistente
+                    res = service.cse().list(q=query, cx=GoogleSearch.CSE_ID, gl='br', lr='lang_pt').execute()
                     
-                    # Lança um erro para códigos HTTP que indicam falha (como 429)
-                    response.raise_for_status()
+                    # A API do CSE não retorna 'related_questions' (People Also Ask) de forma confiável.
+                    # A estrutura abaixo busca por 'relatedSearches', que é o mais próximo que a API oferece.
+                    related_questions_from_search = []
+                    related_searches_from_search = []
 
-                    search_data = response.json()
-                    query_results = []
+                    # Tentativa de extrair pesquisas relacionadas que podem servir como perguntas
+                    if 'context' in res and 'facets' in res['context']:
+                        for facet in res['context']['facets']:
+                            if facet.get('anchor') == 'Pesquisas relacionadas':
+                                for item in facet.get('buckets', []):
+                                    related_searches_from_search.append(item['label'])
 
-                    if "items" in search_data:
-                        for item in search_data.get("items", []):
-                            query_results.append(
-                                SearchResult(
-                                    source_title=item.get("title", "Sem título"),
-                                    snippet=item.get("snippet", "Sem snippet"),
-                                )
-                            )
-
-                    result_obj = QueryResult(query=query, results=query_results)
-                    self.cache[query] = result_obj
-                    all_results.append(result_obj)
+                    # Fallback para a chave 'items' se 'context' não estiver disponível
+                    if not related_searches_from_search and 'items' in res:
+                        for item in res.get('items', []):
+                             if 'pagemap' in item and 'metatags' in item['pagemap']:
+                                 # Lógica para extrair de metatags se necessário
+                                 pass
                     
-                    # Se a busca foi bem-sucedida, sai do loop de tentativas
-                    break 
+                    results.append({
+                        "query": query,
+                        "items": res.get('items', []),
+                        "related_questions": related_searches_from_search, # Usamos related_searches como fonte para o FAQ
+                        "related_searches": related_searches_from_search
+                    })
 
-                except requests.exceptions.HTTPError as e:
-                    # Verifica se o erro é de "Too Many Requests"
-                    if e.response.status_code == 429:
-                        logging.warning(f"Limite de taxa atingido (429) na tentativa {attempt + 1}/{max_retries} para a busca: '{query}'. Aguardando {wait_time}s...")
-                        time.sleep(wait_time)
-                        wait_time *= backoff_factor # Aumenta o tempo de espera para a próxima tentativa
-                        
-                        # Se for a última tentativa, loga o erro e continua
-                        if attempt == max_retries - 1:
-                            logging.error(f"Erro ao buscar por '{query}' após {max_retries} tentativas: {e}")
-                            all_results.append(QueryResult(query=query, results=[]))
-                    else:
-                        # Para outros erros HTTP, loga e desiste
-                        logging.error(f"Erro HTTP inesperado ao buscar por '{query}': {e}")
-                        all_results.append(QueryResult(query=query, results=[]))
-                        break
-
-                except requests.exceptions.RequestException as e:
-                    logging.error(f"Erro de conexão ao buscar por '{query}': {e}")
-                    all_results.append(QueryResult(query=query, results=[]))
-                    break
-            # --- FIM DA CORREÇÃO ---
-
-        return all_results
-
-google_search = GoogleSearch()
+                except HttpError as e:
+                    logging.error(f"Erro na API do Google para a consulta '{query}': {e}")
+                    results.append({"query": query, "items": [], "related_questions": [], "related_searches": [], "error": str(e)})
+        
+        except Exception as e:
+            logging.error(f"Erro inesperado ao inicializar o serviço do Google Search: {e}")
+            return [{"query": q, "items": [], "related_questions": [], "related_searches": [], "error": "Falha geral no serviço de busca."} for q in queries]
+            
+        return results
